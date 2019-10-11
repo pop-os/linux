@@ -11,6 +11,7 @@ space := $(empty) $(empty)
 
 # The source package name will be the first token from $(DEBIAN)/changelog
 DEB_SOURCE := $(shell dpkg-parsechangelog -l$(DEBIAN)/changelog -S source)
+src_pkg_name=$(DEB_SOURCE)
 
 # Get the series
 DEB_DISTRIBUTION := $(shell dpkg-parsechangelog -l$(DEBIAN)/changelog -S distribution | sed -e 's/-\(security\|updates\|proposed\)$$//')
@@ -90,8 +91,8 @@ CROSS_COMPILE ?= $(DEB_HOST_GNU_TYPE)-
 # $(DEBIAN)/rules.d/hooks.mk and $(DEBIAN)/rules.d/$(arch).mk files
 #
 export gcc?=gcc
-export rustc?=rustc
-export rustfmt?=rustfmt
+export rustc?=rustc-1.91
+export rustfmt?=rustfmt-1.91
 export bindgen?=bindgen
 GCC_BUILD_DEPENDS=\ $(gcc):native, $(gcc)-aarch64-linux-gnu [arm64] <cross>, $(gcc)-arm-linux-gnueabihf [armhf] <cross>, $(gcc)-powerpc64le-linux-gnu [ppc64el] <cross>, $(gcc)-riscv64-linux-gnu [riscv64] <cross>, $(gcc)-s390x-linux-gnu [s390x] <cross>, $(gcc)-x86-64-linux-gnu [amd64] <cross>,
 
