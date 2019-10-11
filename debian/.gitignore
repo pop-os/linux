@@ -7,7 +7,7 @@
 /build/
 /canonical-certs.pem
 /canonical-revoked-certs.pem
-/changelog
+#/changelog
 /control
 /files
 /linux-*/
