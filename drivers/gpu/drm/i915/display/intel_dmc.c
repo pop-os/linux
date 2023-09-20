@@ -134,10 +134,8 @@ MODULE_FIRMWARE(MTL_DMC_PATH);
 #define DG2_DMC_PATH			DMC_LEGACY_PATH(dg2, 2, 08)
 MODULE_FIRMWARE(DG2_DMC_PATH);
 
-#define ADLP_DMC_PATH			DMC_PATH(adlp)
-#define ADLP_DMC_FALLBACK_PATH		DMC_LEGACY_PATH(adlp, 2, 16)
+#define ADLP_DMC_PATH			DMC_LEGACY_PATH(adlp, 2, 16)
 MODULE_FIRMWARE(ADLP_DMC_PATH);
-MODULE_FIRMWARE(ADLP_DMC_FALLBACK_PATH);
 
 #define ADLS_DMC_PATH			DMC_LEGACY_PATH(adls, 2, 01)
 MODULE_FIRMWARE(ADLS_DMC_PATH);
@@ -1056,9 +1054,7 @@ static void intel_dmc_runtime_pm_put(struct intel_display *display)
 
 static const char *dmc_fallback_path(struct intel_display *display)
 {
-	if (display->platform.alderlake_p)
-		return ADLP_DMC_FALLBACK_PATH;
-
+	/* No fallback paths for now. */
 	return NULL;
 }
 
