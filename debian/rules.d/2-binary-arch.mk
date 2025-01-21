@@ -733,7 +733,6 @@ endif
 
 binary-debs-deps-$(do_flavour_image_package) += $(addprefix binary-,$(flavours))
 
-meta_version=$(release).$(revision)
 define dh_all_meta
 	dh_installchangelogs -p$(1)
 	dh_installdocs -p$(1)
@@ -742,13 +741,15 @@ define dh_all_meta
 	dh_shlibdeps -p$(1) $(shlibdeps_opts)
 	dh_installdeb -p$(1)
 	dh_installdebconf -p$(1)
-	$(lockme) dh_gencontrol -p$(1) -- -Vlinux:rprovides='$(rprovides)' -v$(meta_version)
+	$(lockme) dh_gencontrol -p$(1) -- -Vlinux:rprovides='$(rprovides)' -v$(DEB_VERSION)
 	dh_md5sums -p$(1)
 	dh_builddeb -p$(1)
 endef
 
 binary-meta:
 	@echo Debug: $@
+	@echo src_pkg_name=$(src_pkg_name)
+	@echo DEB_VERSION=$(DEB_VERSION)
 
 ifeq ($(do_flavour_image_package),true)
 	$(call dh_all_meta,$(src_pkg_name)-headers-generic)
@@ -789,4 +790,3 @@ endif
 .PHONY: binary-arch
 binary-arch: $(binary-arch-deps-true)
 	@echo Debug: $@
-
