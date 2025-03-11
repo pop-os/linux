@@ -120,6 +120,7 @@ Depends:
  ${misc:Depends},
  linux-image-PKGVER-ABINUM-generic (= ${source:Version}),
  linux-firmware,
+ gcc-14,
  intel-microcode [amd64],
  amd64-microcode [amd64]
 Recommends: thermald [amd64]
