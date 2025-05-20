@@ -293,22 +293,8 @@ static int pciehp_resume_noirq(struct pcie_device *dev)
 	ctrl->cmd_busy = true;
 
 	/* clear spurious events from rediscovery of inserted card */
-	if (ctrl->state == ON_STATE || ctrl->state == BLINKINGOFF_STATE) {
+	if (ctrl->state == ON_STATE || ctrl->state == BLINKINGOFF_STATE)
 		pcie_clear_hotplug_events(ctrl);
-
-		/*
-		 * If hotplugged device was replaced with a different one
-		 * during system sleep, mark the old device disconnected
-		 * (to prevent its driver from accessing the new device)
-		 * and synthesize a Presence Detect Changed event.
-		 */
-		if (pciehp_device_replaced(ctrl)) {
-			ctrl_dbg(ctrl, "device replaced during system sleep\n");
-			pci_walk_bus(ctrl->pcie->port->subordinate,
-				     pci_dev_set_disconnected, NULL);
-			pciehp_request(ctrl, PCI_EXP_SLTSTA_PDC);
-		}
-	}
 
 	return 0;
 }
