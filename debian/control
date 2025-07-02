@@ -6,7 +6,7 @@ XSC-Ubuntu-Compatible-Signing: ubuntu/4 pro/3
 Rules-Requires-Root: no
 Standards-Version: 3.9.4.0
 Build-Depends:
- gcc-14, gcc-14-aarch64-linux-gnu [arm64] <cross>, gcc-14-arm-linux-gnueabihf [armhf] <cross>, gcc-14-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-14-riscv64-linux-gnu [riscv64] <cross>, gcc-14-s390x-linux-gnu [s390x] <cross>, gcc-14-x86-64-linux-gnu [amd64] <cross>,
+ gcc-13, gcc-13-aarch64-linux-gnu [arm64] <cross>, gcc-13-arm-linux-gnueabihf [armhf] <cross>, gcc-13-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-13-riscv64-linux-gnu [riscv64] <cross>, gcc-13-s390x-linux-gnu [s390x] <cross>, gcc-13-x86-64-linux-gnu [amd64] <cross>,
  autoconf <!stage1>,
  automake <!stage1>,
  bc <!stage1>,
@@ -120,7 +120,6 @@ Provides: wireguard-modules (= 1.0.0)
 Depends:
  ${misc:Depends},
  linux-image-6.12.10-76061203-generic (= ${source:Version}),
- gcc-14,
  linux-firmware,
  intel-microcode [amd64],
  amd64-microcode [amd64]
@@ -200,8 +199,8 @@ Architecture: all
 Multi-Arch: foreign
 Section: kernel
 Priority: optional
-Provides:
- bpftool,
+Provides: 
+ bpftool, 
  linux-cpupower,
 Depends: ${misc:Depends}, lsb-release, hwdata
 Description: Linux kernel version specific tools for version 6.12.10
@@ -560,3 +559,4 @@ Description: Linux kernel buildinfo for version 6.12.10 on 64 bit x86 SMP
  64 bit x86 SMP.
  .
  You likely do not want to install this package.
+
