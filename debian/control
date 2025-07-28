@@ -42,7 +42,7 @@ Build-Depends:
  libunwind8-dev [amd64 arm64 armhf ppc64el] <!stage1>,
  makedumpfile:native [amd64] <!stage1>,
  openssl <!stage1>,
- pahole (>= 1.29-2ubuntu2) [amd64 arm64 armhf ppc64el s390x riscv64] | dwarves (>= 1.21) [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
+ dwarves (>= 1.21) [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
  pkg-config <!stage1>,
  python3:native <!stage1>,
  python3-dev:native <!stage1>,
@@ -265,7 +265,7 @@ Description: Linux kernel specific documentation for version 6.15.8
  compatibility reasons. It will be dropped in the future.
 
 Package: linux-bpf-dev
-Architecture: amd64 armhf arm64 i386 ppc64el riscv64 s390x
+Architecture: amd64 armhf arm64 ppc64el riscv64 s390x
 Depends: ${misc:Depends}
 Multi-Arch: same
 Description: Headers for BPF development
@@ -292,47 +292,9 @@ Replaces:
   linux-tools-common (<< 6.14.0-8~),
 Description: Performance analysis tools for Linux
 
-Package: linux-image-unsigned-6.15.8-76061508-generic
-Build-Profiles: <!stage1>
-Architecture: arm64
-Section: kernel
-Priority: optional
-Provides: linux-image, fuse-module, kvm-api-4, redhat-cluster-modules, ivtv-modules, virtualbox-guest-modules [amd64], ${linux:rprovides}
-Depends: ${misc:Depends}, ${shlibs:Depends}, kmod, linux-base (>= 4.5ubuntu1~16.04.1), linux-modules-6.15.8-76061508-generic
-Recommends: kernelstub [amd64] | grub-pc [amd64] | grub-efi-amd64 [amd64] | grub-efi-ia32 [amd64] | grub [amd64] | lilo [amd64] | flash-kernel [armhf arm64] | grub-efi-arm64 [arm64] | grub-efi-arm [armhf] | grub-ieee1275 [ppc64el], initramfs-tools | linux-initramfs-tool
-Breaks: flash-kernel (<< 3.90ubuntu2) [arm64 armhf], s390-tools (<< 2.3.0-0ubuntu3) [s390x]
-Conflicts: linux-image-6.15.8-76061508-generic
-Suggests: bpftool, linux-perf, linux-tools, linux-headers-6.15.8-76061508-generic, linux-modules-extra-6.15.8-76061508-generic
-Description: Linux kernel image for version 6.15.8
- This package contains the unsigned Linux kernel image for version 6.15.8.
- .
- Supports Generic processors.
- .
- Geared toward desktop and server systems.
- .
- You likely do not want to install this package directly. Instead, install
- the linux-generic meta-package, which will ensure that upgrades work
- correctly, and that supporting packages are also installed.
-
-Package: linux-image-unsigned-6.15.8-76061508-generic-dbgsym
-Build-Profiles: <!stage1>
-Architecture: arm64
-Section: devel
-Priority: optional
-Depends: ${misc:Depends}
-Provides: linux-debug
-Description: Linux kernel debug image for version 6.15.8
- This package provides the unsigned kernel debug image for version 6.15.8.
- .
- This is for sites that wish to debug the kernel.
- .
- The kernel image contained in this package is NOT meant to boot from. It
- is uncompressed, and unstripped. This package also includes the
- unstripped modules.
-
 Package: linux-image-6.15.8-76061508-generic
 Build-Profiles: <!stage1>
-Architecture: amd64 armhf ppc64el s390x
+Architecture: amd64 armhf arm64 ppc64el s390x
 Section: kernel
 Priority: optional
 Provides: linux-image, fuse-module, kvm-api-4, redhat-cluster-modules, ivtv-modules, virtualbox-guest-modules [amd64], ${linux:rprovides}
@@ -354,7 +316,7 @@ Description: Linux kernel image for version 6.15.8
 
 Package: linux-image-6.15.8-76061508-generic-dbgsym
 Build-Profiles: <!stage1>
-Architecture: amd64 armhf ppc64el s390x
+Architecture: amd64 armhf arm64 ppc64el s390x
 Section: devel
 Priority: optional
 Depends: ${misc:Depends}
@@ -447,7 +409,7 @@ Description: Linux kernel buildinfo for version 6.15.8
  .
  You likely do not want to install this package.
 
-Package: linux-image-unsigned-6.15.8-76061508-generic-64k
+Package: linux-image-6.15.8-76061508-generic-64k
 Build-Profiles: <!stage1>
 Architecture: arm64
 Section: kernel
@@ -456,10 +418,10 @@ Provides: linux-image, fuse-module, kvm-api-4, redhat-cluster-modules, ivtv-modu
 Depends: ${misc:Depends}, ${shlibs:Depends}, kmod, linux-base (>= 4.5ubuntu1~16.04.1), linux-modules-6.15.8-76061508-generic-64k
 Recommends: grub-efi-arm64 [arm64] | flash-kernel [arm64], initramfs-tools | linux-initramfs-tool
 Breaks: flash-kernel (<< 3.90ubuntu2) [arm64 armhf], s390-tools (<< 2.3.0-0ubuntu3) [s390x]
-Conflicts: linux-image-6.15.8-76061508-generic-64k
+Conflicts: linux-image-unsigned-6.15.8-76061508-generic-64k
 Suggests: bpftool, linux-perf, linux-tools, linux-headers-6.15.8-76061508-generic-64k, linux-modules-extra-6.15.8-76061508-generic-64k
 Description: Linux kernel image for version 6.15.8
- This package contains the unsigned Linux kernel image for version 6.15.8.
+ This package contains the Linux kernel image for version 6.15.8.
  .
  Supports Generic 64K pages processors.
  .
@@ -469,7 +431,7 @@ Description: Linux kernel image for version 6.15.8
  the linux-generic-64k meta-package, which will ensure that upgrades work
  correctly, and that supporting packages are also installed.
 
-Package: linux-image-unsigned-6.15.8-76061508-generic-64k-dbgsym
+Package: linux-image-6.15.8-76061508-generic-64k-dbgsym
 Build-Profiles: <!stage1>
 Architecture: arm64
 Section: devel
@@ -477,7 +439,7 @@ Priority: optional
 Depends: ${misc:Depends}
 Provides: linux-debug
 Description: Linux kernel debug image for version 6.15.8
- This package provides the unsigned kernel debug image for version 6.15.8.
+ This package provides the kernel debug image for version 6.15.8.
  .
  This is for sites that wish to debug the kernel.
  .
