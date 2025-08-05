@@ -10,7 +10,7 @@ Build-Depends:
  bc <!stage1>,
  bindgen:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  bison <!stage1>,
- clang-19:native [amd64 arm64 armhf ppc64el riscv64 s390x],
+ clang-15:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  cpio,
  curl <!stage1>,
  debhelper-compat (= 10),
@@ -32,7 +32,7 @@ Build-Depends:
  libnuma-dev [amd64 arm64 ppc64el s390x] <!stage1>,
  libpci-dev <!stage1>,
  libssl-dev <!stage1>,
- libstdc++-dev,
+ libstdc++-12-dev,
  libtool <!stage1>,
  libtraceevent-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
  libtracefs-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
@@ -118,6 +118,7 @@ Provides: wireguard-modules (= 1.0.0)
 Depends:
  ${misc:Depends},
  linux-image-PKGVER-ABINUM-generic (= ${source:Version}),
+ gcc-12,
  linux-firmware,
  intel-microcode [amd64],
  amd64-microcode [amd64]
