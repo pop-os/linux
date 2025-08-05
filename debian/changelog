@@ -1,4 +1,4 @@
-linux (6.15.8-76061508.202507240745) noble; urgency=low
+linux (6.15.8-76061508.202507240745) questing; urgency=low
 
   [ Mainline Build ]
   Mainline build at commit: v6.15.8
