@@ -1,0 +1,2 @@
+#!/bin/bash
+echo "DW_AT_decl_file /init.c"
