@@ -1,6 +1,6 @@
-linux (6.16.3-061603.202508231538) questing; urgency=low
+linux (6.16.3-76061603.202508231538) questing; urgency=low
 
+  [ Mainline Build ]
   Mainline build at commit: v6.16.3
 
- -- Mainline Build <kernel@balboa>  Sat, 23 Aug 2025 15:38:45 +0000
-
+ -- Michael Murphy <michael@mmurphy.dev>  Thu, 28 Aug 2025 12:58:16 +0200
