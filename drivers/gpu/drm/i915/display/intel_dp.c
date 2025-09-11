@@ -1438,6 +1438,11 @@ intel_dp_mode_valid(struct drm_connector *_connector,
 	if (mode->clock < 10000)
 		return MODE_CLOCK_LOW;
 
+	if (intel_has_quirk(display, QUIRK_EDP_MAX_240HZ_HOOK) &&
+	    intel_dp_is_edp(intel_dp) &&
+	    drm_mode_vrefresh(mode) > 240)
+		return MODE_BAD;
+
 	fixed_mode = intel_panel_fixed_mode(connector, mode);
 	if (intel_dp_is_edp(intel_dp) && fixed_mode) {
 		status = intel_panel_mode_valid(connector, mode);
