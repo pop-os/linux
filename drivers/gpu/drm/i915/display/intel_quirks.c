@@ -192,6 +192,13 @@ static const struct intel_dmi_quirk intel_dmi_quirks[] = {
 				.matches = {DMI_EXACT_MATCH(DMI_BOARD_NAME, "X6AR5xxY_mLED"),
 				},
 			},
+			{
+				.callback = intel_dmi_edp_max_240hz,
+				.ident = "System76 Serval WS",
+				.matches = {DMI_EXACT_MATCH(DMI_BOARD_VENDOR, "System76"),
+					    DMI_EXACT_MATCH(DMI_BOARD_VERSION, "serw14"),
+				},
+			},
 			{ }
 		},
 		.hook = quirk_edp_max_240hz_hook,
