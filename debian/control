@@ -11,6 +11,7 @@ Build-Depends:
  automake <!stage1>,
  bc <!stage1>,
  bindgen:native [amd64 arm64 armhf ppc64el riscv64 s390x],
+ binutils-dev,
  bison <!stage1>,
  clang-15:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  cpio,
@@ -24,7 +25,9 @@ Build-Depends:
  java-common <!stage1>,
  kmod <!stage1>,
  libaudit-dev <!stage1>,
+ libbpf-dev,
  libcap-dev <!stage1>,
+ libcapstone-dev,
  libdebuginfod-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
  libdw-dev <!stage1>,
  libelf-dev <!stage1>,
@@ -33,6 +36,7 @@ Build-Depends:
  libnewt-dev <!stage1>,
  libnuma-dev [amd64 arm64 ppc64el s390x] <!stage1>,
  libpci-dev <!stage1>,
+ libperl-dev,
  libssl-dev <!stage1>,
  libstdc++-12-dev,
  libtool <!stage1>,
@@ -40,6 +44,7 @@ Build-Depends:
  libtracefs-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
  libudev-dev <!stage1>,
  libunwind8-dev [amd64 arm64 armhf ppc64el] <!stage1>,
+ llvm-15-dev,
  makedumpfile:native [amd64] <!stage1>,
  openssl <!stage1>,
  dwarves (>= 1.21) [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
@@ -200,7 +205,7 @@ Architecture: all
 Multi-Arch: foreign
 Section: kernel
 Priority: optional
-Provides: 
+Provides:
  linux-cpupower,
 Recommends:
  bpftool (>= 7.6.0+6.14.0-8~),
@@ -716,4 +721,3 @@ Description: Linux kernel vision modules for version 6.16.3-76061603
  one of the linux-modules-vision-generic-64k* meta-packages,
  which will ensure that upgrades work correctly, and that supporting packages are
  also installed.
-
