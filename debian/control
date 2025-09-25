@@ -6,7 +6,7 @@ XSC-Ubuntu-Compatible-Signing: ubuntu/4 pro/3
 Rules-Requires-Root: no
 Standards-Version: 3.9.4.0
 Build-Depends:
- gcc-14:native, gcc-14-aarch64-linux-gnu [arm64] <cross>, gcc-14-arm-linux-gnueabihf [armhf] <cross>, gcc-14-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-14-riscv64-linux-gnu [riscv64] <cross>, gcc-14-s390x-linux-gnu [s390x] <cross>, gcc-14-x86-64-linux-gnu [amd64] <cross>,
+ gcc-13:native, gcc-13-aarch64-linux-gnu [arm64] <cross>, gcc-13-arm-linux-gnueabihf [armhf] <cross>, gcc-13-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-13-riscv64-linux-gnu [riscv64] <cross>, gcc-13-s390x-linux-gnu [s390x] <cross>, gcc-13-x86-64-linux-gnu [amd64] <cross>,
  autoconf <!stage1>,
  automake <!stage1>,
  bc <!stage1>,
