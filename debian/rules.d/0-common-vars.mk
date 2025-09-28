@@ -1,3 +1,4 @@
+gcc:=gcc-14
 # Used when you need to 'escape' a comma.
 comma = ,
 empty :=
