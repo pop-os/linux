@@ -12,7 +12,7 @@ Build-Depends:
  bc <!stage1>,
  bindgen:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  bison <!stage1>,
- clang-19:native [amd64 arm64 armhf ppc64el riscv64 s390x],
+ clang-15:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  cpio,
  curl <!stage1>,
  debhelper-compat (= 10),
