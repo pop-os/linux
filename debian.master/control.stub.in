@@ -82,7 +82,7 @@ Description: Header files related to Linux kernel version PKGVER
 
 Package: SRCPKGNAME-tools-PKGVER-ABINUM
 Build-Profiles: <!stage1>
-Architecture: amd64 armhf arm64 ppc64el s390x
+Architecture: amd64 arm64 ppc64el s390x
 Section: devel
 Priority: optional
 Depends: ${misc:Depends}, ${shlibs:Depends}, linux-tools-common
@@ -94,7 +94,7 @@ Description: Linux kernel version specific tools for version PKGVER-ABINUM
 
 Package: SRCPKGNAME-cloud-tools-PKGVER-ABINUM
 Build-Profiles: <!stage1>
-Architecture: amd64 armhf
+Architecture: amd64
 Section: devel
 Priority: optional
 Depends: ${misc:Depends}, ${shlibs:Depends}, linux-cloud-tools-common
@@ -107,7 +107,7 @@ Description: Linux kernel version specific cloud tools for version PKGVER-ABINUM
 
 Package: SRCPKGNAME-headers-generic
 Build-Profiles: <!stage1>
-Architecture: amd64 armhf arm64 powerpc ppc64el s390x
+Architecture: amd64 arm64 powerpc ppc64el s390x
 Section: kernel
 Depends:
  ${misc:Depends},
@@ -118,7 +118,7 @@ Description: Generic Linux kernel headers
 
 Package: SRCPKGNAME-image-generic
 Build-Profiles: <!stage1>
-Architecture: amd64 armhf arm64 powerpc ppc64el s390x
+Architecture: amd64 arm64 powerpc ppc64el s390x
 Section: kernel
 Provides: wireguard-modules (= 1.0.0)
 Depends:
@@ -134,7 +134,7 @@ Description: Generic Linux kernel image
 
 Package: SRCPKGNAME-tools-generic
 Build-Profiles: <!stage1>
-Architecture: amd64 armhf arm64 powerpc ppc64el s390x
+Architecture: amd64 arm64 powerpc ppc64el s390x
 Section: kernel
 Provides: linux-tools
 Depends:
@@ -158,7 +158,7 @@ Description: Generic Linux kernel cloud tools
 
 Package: SRCPKGNAME-generic
 Build-Profiles: <!stage1>
-Architecture: amd64 armhf arm64 powerpc ppc64el s390x
+Architecture: amd64 arm64 powerpc ppc64el s390x
 Section: kernel
 Depends:
  ${misc:Depends},
