@@ -6,7 +6,7 @@ XSC-Ubuntu-Compatible-Signing: ubuntu/4 pro/3
 Rules-Requires-Root: no
 Standards-Version: 3.9.4.0
 Build-Depends:
- gcc-15:native, gcc-15-aarch64-linux-gnu [arm64] <cross>, gcc-15-arm-linux-gnueabihf [armhf] <cross>, gcc-15-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-15-riscv64-linux-gnu [riscv64] <cross>, gcc-15-s390x-linux-gnu [s390x] <cross>, gcc-15-x86-64-linux-gnu [amd64] <cross>,
+ gcc-13:native, gcc-13-aarch64-linux-gnu [arm64] <cross>, gcc-13-arm-linux-gnueabihf [armhf] <cross>, gcc-13-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-13-riscv64-linux-gnu [riscv64] <cross>, gcc-13-s390x-linux-gnu [s390x] <cross>, gcc-13-x86-64-linux-gnu [amd64] <cross>,
  autoconf <!stage1>,
  automake <!stage1>,
  bc <!stage1>,
@@ -200,7 +200,7 @@ Architecture: all
 Multi-Arch: foreign
 Section: kernel
 Priority: optional
-Provides: 
+Provides:
  linux-cpupower,
 Recommends:
  bpftool (>= 7.6.0+6.14.0-8~),
@@ -754,4 +754,3 @@ Description: Linux kernel vision modules for version 6.18.7-76061807
  one of the linux-modules-vision-generic-64k* meta-packages,
  which will ensure that upgrades work correctly, and that supporting packages are
  also installed.
-
