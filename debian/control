@@ -6,14 +6,14 @@ XSC-Ubuntu-Compatible-Signing: ubuntu/4 pro/3
 Rules-Requires-Root: no
 Standards-Version: 3.9.4.0
 Build-Depends:
- gcc-13:native, gcc-13-aarch64-linux-gnu [arm64] <cross>, gcc-13-arm-linux-gnueabihf [armhf] <cross>, gcc-13-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-13-riscv64-linux-gnu [riscv64] <cross>, gcc-13-s390x-linux-gnu [s390x] <cross>, gcc-13-x86-64-linux-gnu [amd64] <cross>,
+ gcc-12:native, gcc-12-aarch64-linux-gnu [arm64] <cross>, gcc-12-arm-linux-gnueabihf [armhf] <cross>, gcc-12-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-12-riscv64-linux-gnu [riscv64] <cross>, gcc-12-s390x-linux-gnu [s390x] <cross>, gcc-12-x86-64-linux-gnu [amd64] <cross>,
  autoconf <!stage1>,
  automake <!stage1>,
  bc <!stage1>,
  bindgen:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  binutils-dev,
  bison <!stage1>,
- clang-15:native [amd64 arm64 armhf ppc64el riscv64 s390x],
+ clang:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  cpio,
  curl <!stage1>,
  debhelper-compat (= 10),
@@ -37,13 +37,13 @@ Build-Depends:
  libpci-dev <!stage1>,
  libperl-dev,
  libssl-dev <!stage1>,
- libstdc++-dev,
+ libstdc++-12-dev,
  libtool <!stage1>,
  libtraceevent-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
  libtracefs-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
  libudev-dev <!stage1>,
  libunwind8-dev [amd64 arm64 armhf ppc64el] <!stage1>,
- llvm-15-dev,
+ llvm-dev,
  makedumpfile:native [amd64] <!stage1>,
  openssl <!stage1>,
  dwarves (>= 1.21) [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
@@ -204,7 +204,7 @@ Architecture: all
 Multi-Arch: foreign
 Section: kernel
 Priority: optional
-Provides:
+Provides: 
  linux-cpupower,
 Recommends:
  bpftool (>= 7.6.0+6.14.0-8~),
@@ -758,3 +758,4 @@ Description: Linux kernel vision modules for version 6.17.4-76061704
  one of the linux-modules-vision-generic-64k* meta-packages,
  which will ensure that upgrades work correctly, and that supporting packages are
  also installed.
+
