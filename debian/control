@@ -6,7 +6,7 @@ XSC-Ubuntu-Compatible-Signing: ubuntu/4 pro/3
 Rules-Requires-Root: no
 Standards-Version: 3.9.4.0
 Build-Depends:
- gcc-13:native, gcc-13-aarch64-linux-gnu [arm64] <cross>, gcc-13-arm-linux-gnueabihf [armhf] <cross>, gcc-13-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-13-riscv64-linux-gnu [riscv64] <cross>, gcc-13-s390x-linux-gnu [s390x] <cross>, gcc-13-x86-64-linux-gnu [amd64] <cross>,
+ gcc-12:native, gcc-12-aarch64-linux-gnu [arm64] <cross>, gcc-12-arm-linux-gnueabihf [armhf] <cross>, gcc-12-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-12-riscv64-linux-gnu [riscv64] <cross>, gcc-12-s390x-linux-gnu [s390x] <cross>, gcc-12-x86-64-linux-gnu [amd64] <cross>,
  autoconf <!stage1>,
  automake <!stage1>,
  bc <!stage1>,
@@ -38,7 +38,7 @@ Build-Depends:
  libpci-dev <!stage1>,
  libperl-dev,
  libssl-dev <!stage1>,
- libstdc++-14-dev,
+ libstdc++-12-dev,
  libtool <!stage1>,
  libtraceevent-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
  libtracefs-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,

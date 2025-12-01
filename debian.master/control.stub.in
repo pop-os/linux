@@ -36,7 +36,7 @@ Build-Depends:
  libpci-dev <!stage1>,
  libperl-dev,
  libssl-dev <!stage1>,
- libstdc++-14-dev,
+ libstdc++-12-dev,
  libtool <!stage1>,
  libtraceevent-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
  libtracefs-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
