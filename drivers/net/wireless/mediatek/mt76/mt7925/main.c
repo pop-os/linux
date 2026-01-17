@@ -453,6 +453,24 @@ static void mt7925_roc_iter(void *priv, u8 *mac,
 	mt7925_mcu_abort_roc(phy, &mvif->bss_conf, phy->roc_token_id);
 }
 
+/* Async ROC abort - safe to call while holding mutex.
+ * Sets abort flag and lets roc_work handle cleanup without blocking.
+ * This prevents deadlock when called from sta_remove path which holds mutex.
+ */
+static void mt7925_roc_abort_async(struct mt792x_dev *dev)
+{
+	struct mt792x_phy *phy = &dev->phy;
+
+	/* Set abort flag - roc_work checks this before acquiring mutex */
+	set_bit(MT76_STATE_ROC_ABORT, &phy->mt76->state);
+
+	/* Stop timer and schedule work to handle cleanup.
+	 * Must schedule work since timer may not have fired yet.
+	 */
+	timer_delete(&phy->roc_timer);
+	ieee80211_queue_work(phy->mt76->hw, &phy->roc_work);
+}
+
 void mt7925_roc_abort_sync(struct mt792x_dev *dev)
 {
 	struct mt792x_phy *phy = &dev->phy;
@@ -476,6 +494,17 @@ void mt7925_roc_work(struct work_struct *work)
 
 	phy = (struct mt792x_phy *)container_of(work, struct mt792x_phy,
 						roc_work);
+
+	/* Check abort flag BEFORE acquiring mutex to prevent deadlock.
+	 * If abort is requested while we're in the sta_remove path (which
+	 * holds the mutex), we must not try to acquire it or we'll deadlock.
+	 * Clear the flags and only notify mac80211 if ROC was actually active.
+	 */
+	if (test_and_clear_bit(MT76_STATE_ROC_ABORT, &phy->mt76->state)) {
+		if (test_and_clear_bit(MT76_STATE_ROC, &phy->mt76->state))
+			ieee80211_remain_on_channel_expired(phy->mt76->hw);
+		return;
+	}
 
 	if (!test_and_clear_bit(MT76_STATE_ROC, &phy->mt76->state))
 		return;
@@ -504,13 +533,92 @@ static int mt7925_abort_roc(struct mt792x_phy *phy,
 	return err;
 }
 
+/* ROC rate limiting constants - exponential backoff to prevent MCU overload
+ * when upper layers trigger rapid reconnection cycles (e.g., MLO auth failures).
+ * Max backoff ~1.6s, resets after 10s of no timeouts.
+ */
+#define MT7925_ROC_BACKOFF_BASE_MS	100
+#define MT7925_ROC_BACKOFF_MAX_MS	1600
+#define MT7925_ROC_TIMEOUT_RESET_MS	10000
+#define MT7925_ROC_TIMEOUT_WARN_THRESH	5
+
+/* Check if ROC should be throttled due to recent timeouts.
+ * Returns delay in jiffies if throttling, 0 if OK to proceed.
+ */
+static unsigned long mt7925_roc_throttle_check(struct mt792x_phy *phy)
+{
+	unsigned long now = jiffies;
+
+	/* Reset timeout counter if it's been a while since last timeout */
+	if (phy->roc_timeout_count &&
+	    time_after(now, phy->roc_last_timeout +
+		       msecs_to_jiffies(MT7925_ROC_TIMEOUT_RESET_MS))) {
+		phy->roc_timeout_count = 0;
+		phy->roc_backoff_until = 0;
+	}
+
+	/* Check if we're still in backoff period */
+	if (phy->roc_backoff_until && time_before(now, phy->roc_backoff_until))
+		return phy->roc_backoff_until - now;
+
+	return 0;
+}
+
+/* Record ROC timeout and calculate backoff period */
+static void mt7925_roc_record_timeout(struct mt792x_phy *phy)
+{
+	unsigned int backoff_ms;
+
+	phy->roc_last_timeout = jiffies;
+	phy->roc_timeout_count++;
+
+	/* Exponential backoff: 100ms, 200ms, 400ms, 800ms, 1600ms (capped) */
+	backoff_ms = MT7925_ROC_BACKOFF_BASE_MS <<
+		     min_t(u8, phy->roc_timeout_count - 1, 4);
+	if (backoff_ms > MT7925_ROC_BACKOFF_MAX_MS)
+		backoff_ms = MT7925_ROC_BACKOFF_MAX_MS;
+
+	phy->roc_backoff_until = jiffies + msecs_to_jiffies(backoff_ms);
+
+	/* Warn if we're seeing repeated timeouts - likely upper layer issue */
+	if (phy->roc_timeout_count == MT7925_ROC_TIMEOUT_WARN_THRESH)
+		dev_warn(phy->dev->mt76.dev,
+			 "mt7925: %u consecutive ROC timeouts, possible mac80211/wpa_supplicant issue (MLO key race?)\n",
+			 phy->roc_timeout_count);
+}
+
+/* Clear timeout tracking on successful ROC */
+static void mt7925_roc_clear_timeout(struct mt792x_phy *phy)
+{
+	phy->roc_timeout_count = 0;
+	phy->roc_backoff_until = 0;
+}
+
 static int mt7925_set_roc(struct mt792x_phy *phy,
 			  struct mt792x_bss_conf *mconf,
 			  struct ieee80211_channel *chan,
 			  int duration,
 			  enum mt7925_roc_req type)
 {
+	unsigned long throttle;
 	int err;
+
+	/* Check rate limiting - if in backoff period, wait or return busy */
+	throttle = mt7925_roc_throttle_check(phy);
+	if (throttle) {
+		/* For short backoffs, wait; for longer ones, return busy */
+		if (throttle < msecs_to_jiffies(200)) {
+			msleep(jiffies_to_msecs(throttle));
+		} else {
+			dev_dbg(phy->dev->mt76.dev,
+				"mt7925: ROC throttled, %u ms remaining\n",
+				jiffies_to_msecs(throttle));
+			return -EBUSY;
+		}
+	}
+
+	/* Clear stale abort flag from previous ROC */
+	clear_bit(MT76_STATE_ROC_ABORT, &phy->mt76->state);
 
 	if (test_and_set_bit(MT76_STATE_ROC, &phy->mt76->state))
 		return -EBUSY;
@@ -527,7 +635,11 @@ static int mt7925_set_roc(struct mt792x_phy *phy,
 	if (!wait_event_timeout(phy->roc_wait, phy->roc_grant, 4 * HZ)) {
 		mt7925_mcu_abort_roc(phy, mconf, phy->roc_token_id);
 		clear_bit(MT76_STATE_ROC, &phy->mt76->state);
+		mt7925_roc_record_timeout(phy);
 		err = -ETIMEDOUT;
+	} else {
+		/* Successful ROC - reset timeout tracking */
+		mt7925_roc_clear_timeout(phy);
 	}
 
 out:
@@ -538,7 +650,26 @@ static int mt7925_set_mlo_roc(struct mt792x_phy *phy,
 			      struct mt792x_bss_conf *mconf,
 			      u16 sel_links)
 {
+	unsigned long throttle;
 	int err;
+
+	/* Check rate limiting - MLO ROC is especially prone to rapid-fire
+	 * during reconnection cycles after MLO authentication failures.
+	 */
+	throttle = mt7925_roc_throttle_check(phy);
+	if (throttle) {
+		if (throttle < msecs_to_jiffies(200)) {
+			msleep(jiffies_to_msecs(throttle));
+		} else {
+			dev_dbg(phy->dev->mt76.dev,
+				"mt7925: MLO ROC throttled, %u ms remaining\n",
+				jiffies_to_msecs(throttle));
+			return -EBUSY;
+		}
+	}
+
+	/* Clear stale abort flag from previous ROC */
+	clear_bit(MT76_STATE_ROC_ABORT, &phy->mt76->state);
 
 	if (WARN_ON_ONCE(test_and_set_bit(MT76_STATE_ROC, &phy->mt76->state)))
 		return -EBUSY;
@@ -554,7 +685,10 @@ static int mt7925_set_mlo_roc(struct mt792x_phy *phy,
 	if (!wait_event_timeout(phy->roc_wait, phy->roc_grant, 4 * HZ)) {
 		mt7925_mcu_abort_roc(phy, mconf, phy->roc_token_id);
 		clear_bit(MT76_STATE_ROC, &phy->mt76->state);
+		mt7925_roc_record_timeout(phy);
 		err = -ETIMEDOUT;
+	} else {
+		mt7925_roc_clear_timeout(phy);
 	}
 
 out:
@@ -571,6 +705,7 @@ static int mt7925_remain_on_channel(struct ieee80211_hw *hw,
 	struct mt792x_phy *phy = mt792x_hw_phy(hw);
 	int err;
 
+	cancel_work_sync(&phy->roc_work);
 	mt792x_mutex_acquire(phy->dev);
 	err = mt7925_set_roc(phy, &mvif->bss_conf,
 			     chan, duration, MT7925_ROC_REQ_ROC);
@@ -878,13 +1013,13 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 	if (!mlink)
 		return -EINVAL;
 
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT792x_WTBL_STA - 1);
-	if (idx < 0)
-		return -ENOSPC;
-
 	mconf = mt792x_vif_to_link(mvif, link_id);
 	if (!mconf)
 		return -EINVAL;
+
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT792x_WTBL_STA - 1);
+	if (idx < 0)
+		return -ENOSPC;
 
 	mt76_wcid_init(&mlink->wcid, 0);
 	mlink->wcid.sta = 1;
@@ -905,14 +1040,16 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 
 	ret = mt76_connac_pm_wake(&dev->mphy, &dev->pm);
 	if (ret)
-		return ret;
+		goto err_wcid;
 
 	mt7925_mac_wtbl_update(dev, idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 
 	link_conf = mt792x_vif_to_bss_conf(vif, link_id);
-	if (!link_conf)
-		return -EINVAL;
+	if (!link_conf) {
+		ret = -EINVAL;
+		goto err_wcid;
+	}
 
 	/* should update bss info before STA add */
 	if (vif->type == NL80211_IFTYPE_STATION && !link_sta->sta->tdls) {
@@ -924,7 +1061,7 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 			ret = mt7925_mcu_add_bss_info(&dev->phy, mconf->mt76.ctx,
 						      link_conf, link_sta, false);
 		if (ret)
-			return ret;
+			goto err_wcid;
 	}
 
 	if (ieee80211_vif_is_mld(vif) &&
@@ -932,28 +1069,34 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 		ret = mt7925_mcu_sta_update(dev, link_sta, vif, true,
 					    MT76_STA_INFO_STATE_NONE);
 		if (ret)
-			return ret;
+			goto err_wcid;
 	} else if (ieee80211_vif_is_mld(vif) &&
 		   link_sta != mlink->pri_link) {
 		ret = mt7925_mcu_sta_update(dev, mlink->pri_link, vif,
 					    true, MT76_STA_INFO_STATE_ASSOC);
 		if (ret)
-			return ret;
+			goto err_wcid;
 
 		ret = mt7925_mcu_sta_update(dev, link_sta, vif, true,
 					    MT76_STA_INFO_STATE_ASSOC);
 		if (ret)
-			return ret;
+			goto err_wcid;
 	} else {
 		ret = mt7925_mcu_sta_update(dev, link_sta, vif, true,
 					    MT76_STA_INFO_STATE_NONE);
 		if (ret)
-			return ret;
+			goto err_wcid;
 	}
 
 	mt76_connac_power_save_sched(&dev->mphy, &dev->pm);
 
 	return 0;
+
+err_wcid:
+	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
+	mt76_wcid_mask_clear(dev->mt76.wcid_mask, idx);
+	mt76_connac_power_save_sched(&dev->mphy, &dev->pm);
+	return ret;
 }
 
 static int
@@ -1139,6 +1282,9 @@ static void mt7925_mac_link_sta_remove(struct mt76_dev *mdev,
 	if (!mlink)
 		return;
 
+	/* With Sean's fix, roc_abort_sync uses cancel_work() instead of
+	 * cancel_work_sync(), so it's safe to call even with mutex held.
+	 */
 	mt7925_roc_abort_sync(dev);
 
 	mt76_connac_free_pending_tx_skbs(&dev->pm, &mlink->wcid);
@@ -1534,6 +1680,8 @@ static int mt7925_suspend(struct ieee80211_hw *hw,
 	cancel_delayed_work_sync(&dev->pm.ps_work);
 	mt76_connac_free_pending_tx_skbs(&dev->pm, NULL);
 
+	/* Cancel ROC before quiescing starts */
+	mt7925_roc_abort_sync(dev);
 	mt792x_mutex_acquire(dev);
 
 	clear_bit(MT76_STATE_RUNNING, &phy->mt76->state);
@@ -1880,6 +2028,8 @@ static void mt7925_mgd_prepare_tx(struct ieee80211_hw *hw,
 	u16 duration = info->duration ? info->duration :
 		       jiffies_to_msecs(HZ);
 
+	cancel_work_sync(&mvif->phy->roc_work);
+
 	mt792x_mutex_acquire(dev);
 	mt7925_set_roc(mvif->phy, &mvif->bss_conf,
 		       mvif->bss_conf.mt76.ctx->def.chan, duration,
@@ -2037,6 +2187,7 @@ mt7925_change_vif_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (old_links == new_links)
 		return 0;
 
+	cancel_work_sync(&phy->roc_work);
 	mt792x_mutex_acquire(dev);
 
 	for_each_set_bit(link_id, &rem, IEEE80211_MLD_MAX_NUM_LINKS) {
