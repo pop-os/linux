@@ -685,34 +685,34 @@ static const struct pinctrl_pin_desc tglh_pins[] = {
 };
 
 static const struct intel_padgroup tglh_old_community0_gpps[] = {
-	TGL_GPP(0, 0, 24, 0),				/* GPP_A */
-	TGL_GPP(1, 25, 44, 128),			/* GPP_R */
-	TGL_GPP(2, 45, 70, 32),				/* GPP_B */
-	TGL_GPP(3, 71, 78, INTEL_GPIO_BASE_NOMAP),	/* vGPIO_0 */
+	INTEL_GPP(0, 0, 24, 0),				/* GPP_A */
+	INTEL_GPP(1, 25, 44, 128),			/* GPP_R */
+	INTEL_GPP(2, 45, 70, 32),				/* GPP_B */
+	INTEL_GPP(3, 71, 78, INTEL_GPIO_BASE_NOMAP),	/* vGPIO_0 */
 };
 
 static const struct intel_padgroup tglh_old_community1_gpps[] = {
-	TGL_GPP(0, 79, 104, 96),			/* GPP_D */
-	TGL_GPP(1, 105, 128, 64),			/* GPP_C */
-	TGL_GPP(2, 129, 136, 160),			/* GPP_S */
-	TGL_GPP(3, 137, 153, 192),			/* GPP_G */
-	TGL_GPP(4, 154, 180, 224),			/* vGPIO */
+	INTEL_GPP(0, 79, 104, 96),			/* GPP_D */
+	INTEL_GPP(1, 105, 128, 64),			/* GPP_C */
+	INTEL_GPP(2, 129, 136, 160),			/* GPP_S */
+	INTEL_GPP(3, 137, 153, 192),			/* GPP_G */
+	INTEL_GPP(4, 154, 180, 224),			/* vGPIO */
 };
 
 static const struct intel_padgroup tglh_old_community3_gpps[] = {
-	TGL_GPP(0, 181, 193, 256),			/* GPP_E */
-	TGL_GPP(1, 194, 217, 288),			/* GPP_F */
+	INTEL_GPP(0, 181, 193, 256),			/* GPP_E */
+	INTEL_GPP(1, 194, 217, 288),			/* GPP_F */
 };
 
 static const struct intel_padgroup tglh_old_community4_gpps[] = {
-	TGL_GPP(0, 218, 241, 320),			/* GPP_H */
-	TGL_GPP(1, 242, 251, 384),			/* GPP_J */
-	TGL_GPP(2, 252, 266, 352),			/* GPP_K */
+	INTEL_GPP(0, 218, 241, 320),			/* GPP_H */
+	INTEL_GPP(1, 242, 251, 384),			/* GPP_J */
+	INTEL_GPP(2, 252, 266, 352),			/* GPP_K */
 };
 
 static const struct intel_padgroup tglh_old_community5_gpps[] = {
-	TGL_GPP(0, 267, 281, 416),			/* GPP_I */
-	TGL_GPP(1, 282, 290, INTEL_GPIO_BASE_NOMAP),	/* JTAG */
+	INTEL_GPP(0, 267, 281, 416),			/* GPP_I */
+	INTEL_GPP(1, 282, 290, INTEL_GPIO_BASE_NOMAP),	/* JTAG */
 };
 
 static const struct intel_community tglh_old_communities[] = {
