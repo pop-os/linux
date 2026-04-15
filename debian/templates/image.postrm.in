@@ -20,7 +20,7 @@ if [ -d /etc/kernel/postrm.d ] || [ -d /usr/share/kernel/postrm.d ]; then
         rm -f /usr/lib/linux/triggers/$version
     fi
     DEB_MAINT_PARAMS="$*" run-parts --report --exit-on-error --arg=$version \
-        --arg=$image_path /etc/kernel/postrm.d /usr/share/kernel/postrm.d
+        --arg=$image_path /etc/kernel/postrm.d
 fi
 
 if [ "$1" = purge ]; then
