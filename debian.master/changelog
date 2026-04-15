@@ -1,6 +1,6 @@
-linux (7.0.0-070000.202604122140) resolute; urgency=low
+linux (7.0.0-76070000.202604122140) resolute; urgency=low
 
+  [ Mainline Build ]
   Mainline build at commit: v7.0
 
- -- Mainline Build <kernel@balboa>  Sun, 12 Apr 2026 21:40:09 +0000
-
+ -- Michael Murphy <michael@mmurphy.dev>  Wed, 15 Apr 2026 16:42:23 +0200
