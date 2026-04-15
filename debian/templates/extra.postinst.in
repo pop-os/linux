@@ -9,10 +9,10 @@ if [ "$1" != configure ]; then
 fi
 
 depmod -a -F /boot/System.map-$version $version || true
-if [ -d /etc/kernel/postinst.d ] || [ -d /usr/share/kernel/postinst.d ]; then
+if [ -d /etc/kernel/postinst.d ]; then
     cat - >/usr/lib/linux/triggers/$version <<EOF
 DEB_MAINT_PARAMS="$*" run-parts --report --exit-on-error --arg=$version \
-    --arg="$image_path" /etc/kernel/postinst.d /usr/share/kernel/postinst.d
+    --arg="$image_path" /etc/kernel/postinst.d
 EOF
     dpkg-trigger --no-await linux-update-$version
 fi
