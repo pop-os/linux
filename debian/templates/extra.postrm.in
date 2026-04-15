@@ -23,7 +23,7 @@ depmod -a -F /boot/System.map-$version $version 2>/dev/null || true
 #    # this is an installation event.
 #    cat - >/usr/lib/linux/triggers/$version <<EOF
 #DEB_MAINT_PARAMS="configure" run-parts --report --exit-on-error --arg=$version \
-#    --arg="$image_path" /etc/kernel/postinst.d /usr/share/kernel/postinst.d
+#    --arg="$image_path" /etc/kernel/postinst.d
 #EOF
 #    dpkg-trigger --no-await linux-update-$version
 #fi
