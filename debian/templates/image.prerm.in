@@ -10,9 +10,9 @@ fi
 
 linux-check-removal $version
 
-if [ -d /etc/kernel/prerm.d ] || [ -d /usr/share/kernel/prerm.d ]; then
+if [ -d /etc/kernel/prerm.d ]; then
     DEB_MAINT_PARAMS="$*" run-parts --report --exit-on-error --arg=$version \
-        --arg=$image_path /etc/kernel/prerm.d /usr/share/kernel/prerm.d
+        --arg=$image_path /etc/kernel/prerm.d
 fi
 
 exit 0
