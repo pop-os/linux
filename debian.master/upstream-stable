@@ -1,0 +1,3 @@
+# The following upstream stable releases have been ported:
+[upstream-stable]
+    linux-7.0.y = v7.0.2
