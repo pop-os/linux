@@ -93,7 +93,7 @@ CROSS_COMPILE ?= $(DEB_HOST_GNU_TYPE)-
 export gcc?=gcc
 export rustc?=rustc-1.91
 export rustfmt?=/usr/lib/rust-1.91/bin/rustfmt
-export bindgen?=bindgen
+export bindgen?=bindgen-0.71
 GCC_BUILD_DEPENDS=\ $(gcc):native, $(gcc)-aarch64-linux-gnu [arm64] <cross>, $(gcc)-arm-linux-gnueabihf [armhf] <cross>, $(gcc)-powerpc64le-linux-gnu [ppc64el] <cross>, $(gcc)-riscv64-linux-gnu [riscv64] <cross>, $(gcc)-s390x-linux-gnu [s390x] <cross>, $(gcc)-x86-64-linux-gnu [amd64] <cross>,
 
 builddir	:= $(CURDIR)/debian/build

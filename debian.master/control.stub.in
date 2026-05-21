@@ -8,7 +8,7 @@ Build-Depends:
  autoconf <!stage1>,
  automake <!stage1>,
  bc <!stage1>,
- bindgen:native [amd64 arm64 armhf ppc64el riscv64 s390x],
+ bindgen-0.71:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  bison <!stage1>,
  clang-18:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  cpio,
