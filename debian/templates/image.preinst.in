@@ -1,0 +1,25 @@
+#!/bin/sh
+set -e
+
+version=@abiname@@localversion@
+image_path=/boot/@image-stem@-$version
+
+if [ "$1" = abort-upgrade ]; then
+    exit 0
+fi
+
+if [ "$1" = install ]; then
+    # Create a flag file for postinst
+    mkdir -p /usr/lib/modules/$version
+    touch /usr/lib/modules/$version/.fresh-install
+fi
+
+for d in /etc/kernel/preinst.d /usr/share/kernel/preinst.d; do
+    if [ ! -d $d ]; then
+        continue
+    fi
+    DEB_MAINT_PARAMS="$*" run-parts --report --exit-on-error --arg=$version \
+        --arg=$image_path $d
+done
+
+exit 0

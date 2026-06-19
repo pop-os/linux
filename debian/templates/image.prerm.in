@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+version=@abiname@@localversion@
+image_path=/boot/@image-stem@-$version
+
+if [ "$1" != remove ]; then
+    exit 0
+fi
+
+linux-check-removal $version
+
+for d in /etc/kernel/prerm.d /usr/share/kernel/prerm.d; do
+    if [ ! -d $d ]; then
+        continue
+    fi
+    DEB_MAINT_PARAMS="$*" run-parts --report --exit-on-error --arg=$version \
+        --arg=$image_path $d
+done
+
+exit 0
