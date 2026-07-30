@@ -3,4 +3,4 @@ linux (7.1.5-76070105.202607241434) resolute; urgency=low
   [ Mainline Build ]
   Mainline build at commit: v7.1.5
 
- -- Michael Murphy <mmstick@pop-os>  Thu, 30 Jul 2026 20:24:55 +0200
+ -- Michael Murphy <michael@mmurphy.dev>  Thu, 30 Jul 2026 20:24:55 +0200
