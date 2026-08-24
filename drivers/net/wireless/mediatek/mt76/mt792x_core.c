@@ -996,25 +996,39 @@ static void mt792x_mcu_ownership_poll(struct work_struct *work)
 					      struct mt792x_dev,
 					      mcu_ownership.poll_work);
 	struct mt792x_mcu_ownership *m_own = &dev->mcu_ownership;
+	enum mt792x_mcu_owner current_owner;
+	bool alive;
 
 	if (!mt76_is_mmio(&dev->mt76))
-		return;
-
-	mutex_lock(&m_own->lock);
-	if (m_own->owner == MCU_OWNER_NONE) {
-		mutex_unlock(&m_own->lock);
 		goto reschedule;
-	}
 
-	if (!mt792x_mcu_is_alive(dev)) {
-		m_own->owner = MCU_OWNER_DEAD;
-		m_own->consecutive_fails++;
+	/*
+	 * Read the owner state under lock, but release before the MMIO
+	 * register read.  mt792x_mcu_is_alive() does an MMIO read on
+	 * CONN_ON_LPCTL which can hang indefinitely if the PCIe link is
+	 * dead.  Holding the lock during that read creates a deadlock:
+	 * the stuck poll work prevents reset_work from running on the
+	 * same workqueue.
+	 */
+	mutex_lock(&m_own->lock);
+	current_owner = m_own->owner;
+	mutex_unlock(&m_own->lock);
+
+	if (current_owner == MCU_OWNER_NONE || current_owner == MCU_OWNER_DEAD)
+		goto reschedule;
+
+	alive = mt792x_mcu_is_alive(dev);
+
+	if (!alive) {
+		mutex_lock(&m_own->lock);
+		if (m_own->owner == MCU_OWNER_WIFI) {
+			m_own->owner = MCU_OWNER_DEAD;
+			m_own->consecutive_fails++;
+		}
 		mutex_unlock(&m_own->lock);
 		dev_warn(dev->mt76.dev,
 			 "MCU alive check failed, triggering reset\n");
 		mt792x_reset(&dev->mt76);
-	} else {
-		mutex_unlock(&m_own->lock);
 	}
 
 reschedule:
