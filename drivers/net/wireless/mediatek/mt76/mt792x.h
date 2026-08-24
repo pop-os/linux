@@ -41,6 +41,8 @@
 #define MT792x_MCU_INIT_RETRY_COUNT	10
 #define MT792x_WFSYS_INIT_RETRY_COUNT	2
 
+#define MT792x_OWN_POLL_INTERVAL	msecs_to_jiffies(1000)
+
 #define MT7902_FIRMWARE_WM	"mediatek/WIFI_RAM_CODE_MT7902_1.bin"
 #define MT7920_FIRMWARE_WM	"mediatek/WIFI_RAM_CODE_MT7961_1a.bin"
 #define MT7921_FIRMWARE_WM	"mediatek/WIFI_RAM_CODE_MT7961_1.bin"
@@ -218,6 +220,27 @@ struct mt792x_hif_ops {
 	int (*fw_own)(struct mt792x_dev *dev);
 };
 
+enum mt792x_mcu_owner {
+	MCU_OWNER_NONE,
+	MCU_OWNER_WIFI,
+	MCU_OWNER_DEAD,
+};
+
+struct mt792x_mcu_ownership {
+	enum mt792x_mcu_owner owner;
+	struct mutex lock;
+	unsigned long last_acquire;
+	u32 consecutive_fails;
+	struct delayed_work poll_work;
+};
+
+void mt792x_mcu_ownership_init(struct mt792x_dev *dev);
+void mt792x_mcu_ownership_destroy(struct mt792x_dev *dev);
+int mt792x_mcu_ownership_acquire(struct mt792x_dev *dev);
+void mt792x_mcu_ownership_release(struct mt792x_dev *dev);
+bool mt792x_mcu_is_alive(struct mt792x_dev *dev);
+void mt792x_mcu_mark_dead(struct mt792x_dev *dev);
+
 struct mt792x_dev {
 	union { /* must be first */
 		struct mt76_dev mt76;
@@ -243,6 +266,8 @@ struct mt792x_dev {
 	wait_queue_head_t wait;
 
 	struct work_struct init_work;
+
+	struct mt792x_mcu_ownership mcu_ownership;
 
 	u8 fw_debug;
 	u8 fw_features;

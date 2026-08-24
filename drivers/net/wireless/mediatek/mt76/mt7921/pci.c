@@ -428,6 +428,10 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		goto err_free_irq;
 
+	mt792x_mcu_ownership_init(dev);
+	queue_delayed_work(dev->mt76.wq, &dev->mcu_ownership.poll_work,
+			   MT792x_OWN_POLL_INTERVAL);
+
 	if (of_property_read_bool(dev->mt76.dev->of_node, "wakeup-source"))
 		device_init_wakeup(dev->mt76.dev, true);
 
@@ -451,6 +455,7 @@ static void mt7921_pci_remove(struct pci_dev *pdev)
 	if (of_property_read_bool(dev->mt76.dev->of_node, "wakeup-source"))
 		device_init_wakeup(dev->mt76.dev, false);
 
+	mt792x_mcu_ownership_destroy(dev);
 	mt7921e_unregister_device(dev);
 	set_bit(MT76_REMOVED, &mdev->phy.state);
 	devm_free_irq(&pdev->dev, pdev->irq, dev);
@@ -467,6 +472,7 @@ static int mt7921_pci_suspend(struct device *device)
 	int i, err;
 
 	pm->suspended = true;
+	cancel_delayed_work_sync(&dev->mcu_ownership.poll_work);
 	flush_work(&dev->reset_work);
 	cancel_delayed_work_sync(&pm->ps_work);
 	cancel_work_sync(&pm->wake_work);
@@ -554,6 +560,8 @@ static int mt7921_pci_resume(struct device *device)
 		goto failed;
 
 	mt792x_wpdma_reinit_cond(dev);
+	queue_delayed_work(dev->mt76.wq, &dev->mcu_ownership.poll_work,
+			   MT792x_OWN_POLL_INTERVAL);
 
 	/* enable interrupt */
 	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);

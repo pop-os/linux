@@ -87,6 +87,12 @@ int mt76_mcu_skb_send_and_get_msg(struct mt76_dev *dev, struct sk_buff *skb,
 
 	mutex_lock(&dev->mcu.mutex);
 
+	if (test_bit(MT76_RESET, &dev->phy.state) &&
+	    !test_bit(MT76_STATE_MCU_RUNNING, &dev->phy.state)) {
+		mutex_unlock(&dev->mcu.mutex);
+		return -EIO;
+	}
+
 	if (dev->mcu_ops->mcu_skb_prepare_msg) {
 		orig_skb = skb;
 		ret = dev->mcu_ops->mcu_skb_prepare_msg(dev, skb, cmd, &seq);
