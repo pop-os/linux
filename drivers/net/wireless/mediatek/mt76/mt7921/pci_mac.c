@@ -57,7 +57,15 @@ int mt7921e_mac_reset(struct mt792x_dev *dev)
 {
 	int i, err;
 
-	mt792x_mcu_ownership_acquire(dev);
+	if (test_bit(MT76_REMOVED, &dev->mt76.phy.state))
+		return -ENODEV;
+
+	err = mt792x_mcu_ownership_acquire(dev);
+	if (err) {
+		dev_err(dev->mt76.dev,
+			"cannot acquire MCU ownership, aborting reset\n");
+		return err;
+	}
 
 	mt76_connac_free_pending_tx_skbs(&dev->pm, NULL);
 
