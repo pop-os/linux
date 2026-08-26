@@ -473,7 +473,7 @@ static int mt7921_pci_suspend(struct device *device)
 
 	pm->suspended = true;
 	cancel_delayed_work_sync(&dev->mcu_ownership.poll_work);
-	flush_work(&dev->reset_work);
+	cancel_work_sync(&dev->reset_work);
 	cancel_delayed_work_sync(&pm->ps_work);
 	cancel_work_sync(&pm->wake_work);
 
