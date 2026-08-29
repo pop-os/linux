@@ -922,6 +922,138 @@ int mt792xe_mcu_fw_pmctrl(struct mt792x_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt792xe_mcu_fw_pmctrl);
 
+bool mt792x_mcu_is_alive(struct mt792x_dev *dev)
+{
+	if (mt76_is_sdio(&dev->mt76) || mt76_is_usb(&dev->mt76))
+		return true;
+
+	return !!(mt76_rr(dev, MT_CONN_ON_LPCTL) & PCIE_LPCR_HOST_OWN_SYNC);
+}
+EXPORT_SYMBOL_GPL(mt792x_mcu_is_alive);
+
+void mt792x_mcu_mark_dead(struct mt792x_dev *dev)
+{
+	struct mt792x_mcu_ownership *m_own = &dev->mcu_ownership;
+
+	mutex_lock(&m_own->lock);
+	m_own->owner = MCU_OWNER_DEAD;
+	m_own->consecutive_fails++;
+	mutex_unlock(&m_own->lock);
+
+	dev_err(dev->mt76.dev, "MCU marked dead\n");
+	mt792x_reset(&dev->mt76);
+}
+EXPORT_SYMBOL_GPL(mt792x_mcu_mark_dead);
+
+int mt792x_mcu_ownership_acquire(struct mt792x_dev *dev)
+{
+	struct mt792x_mcu_ownership *m_own = &dev->mcu_ownership;
+	int ret;
+
+	if (!mt76_is_mmio(&dev->mt76))
+		return 0;
+
+	mutex_lock(&m_own->lock);
+
+	if (m_own->owner == MCU_OWNER_DEAD) {
+		mutex_unlock(&m_own->lock);
+		return -EIO;
+	}
+
+	m_own->owner = MCU_OWNER_WIFI;
+	m_own->last_acquire = jiffies;
+	mutex_unlock(&m_own->lock);
+
+	ret = __mt792xe_mcu_drv_pmctrl(dev);
+	if (ret) {
+		mutex_lock(&m_own->lock);
+		m_own->owner = MCU_OWNER_DEAD;
+		m_own->consecutive_fails++;
+		mutex_unlock(&m_own->lock);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mt792x_mcu_ownership_acquire);
+
+void mt792x_mcu_ownership_release(struct mt792x_dev *dev)
+{
+	struct mt792x_mcu_ownership *m_own = &dev->mcu_ownership;
+
+	if (!mt76_is_mmio(&dev->mt76))
+		return;
+
+	mutex_lock(&m_own->lock);
+	if (m_own->owner == MCU_OWNER_WIFI)
+		m_own->owner = MCU_OWNER_NONE;
+	mutex_unlock(&m_own->lock);
+}
+EXPORT_SYMBOL_GPL(mt792x_mcu_ownership_release);
+
+static void mt792x_mcu_ownership_poll(struct work_struct *work)
+{
+	struct mt792x_dev *dev = container_of((struct delayed_work *)work,
+					      struct mt792x_dev,
+					      mcu_ownership.poll_work);
+	struct mt792x_mcu_ownership *m_own = &dev->mcu_ownership;
+	enum mt792x_mcu_owner current_owner;
+	bool alive;
+
+	if (!mt76_is_mmio(&dev->mt76))
+		goto reschedule;
+
+	/*
+	 * Read the owner state under lock, but release before the MMIO
+	 * register read.  mt792x_mcu_is_alive() does an MMIO read on
+	 * CONN_ON_LPCTL which can hang indefinitely if the PCIe link is
+	 * dead.  Holding the lock during that read creates a deadlock:
+	 * the stuck poll work prevents reset_work from running on the
+	 * same workqueue.
+	 */
+	mutex_lock(&m_own->lock);
+	current_owner = m_own->owner;
+	mutex_unlock(&m_own->lock);
+
+	if (current_owner == MCU_OWNER_NONE || current_owner == MCU_OWNER_DEAD)
+		goto reschedule;
+
+	alive = mt792x_mcu_is_alive(dev);
+
+	if (!alive) {
+		mutex_lock(&m_own->lock);
+		if (m_own->owner == MCU_OWNER_WIFI) {
+			m_own->owner = MCU_OWNER_DEAD;
+			m_own->consecutive_fails++;
+		}
+		mutex_unlock(&m_own->lock);
+		dev_warn(dev->mt76.dev,
+			 "MCU alive check failed, triggering reset\n");
+		mt792x_reset(&dev->mt76);
+	}
+
+reschedule:
+	queue_delayed_work(dev->mt76.wq, &m_own->poll_work,
+			   MT792x_OWN_POLL_INTERVAL);
+}
+
+void mt792x_mcu_ownership_init(struct mt792x_dev *dev)
+{
+	struct mt792x_mcu_ownership *m_own = &dev->mcu_ownership;
+
+	mutex_init(&m_own->lock);
+	m_own->owner = MCU_OWNER_NONE;
+	m_own->consecutive_fails = 0;
+	m_own->last_acquire = jiffies;
+	INIT_DELAYED_WORK(&m_own->poll_work, mt792x_mcu_ownership_poll);
+}
+EXPORT_SYMBOL_GPL(mt792x_mcu_ownership_init);
+
+void mt792x_mcu_ownership_destroy(struct mt792x_dev *dev)
+{
+	cancel_delayed_work_sync(&dev->mcu_ownership.poll_work);
+}
+EXPORT_SYMBOL_GPL(mt792x_mcu_ownership_destroy);
+
 int mt792x_load_firmware(struct mt792x_dev *dev)
 {
 	int ret;

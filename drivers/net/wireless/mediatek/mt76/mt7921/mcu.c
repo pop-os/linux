@@ -25,7 +25,8 @@ int mt7921_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 	if (!skb) {
 		dev_err(mdev->dev, "Message %08x (seq %d) timeout\n",
 			cmd, seq);
-		mt792x_reset(mdev);
+		if (!test_bit(MT76_MCU_RESET, &mdev->phy.state))
+			mt792x_reset(mdev);
 
 		return -ETIMEDOUT;
 	}

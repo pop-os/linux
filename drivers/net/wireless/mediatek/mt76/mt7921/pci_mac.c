@@ -57,7 +57,15 @@ int mt7921e_mac_reset(struct mt792x_dev *dev)
 {
 	int i, err;
 
-	mt792xe_mcu_drv_pmctrl(dev);
+	if (test_bit(MT76_REMOVED, &dev->mt76.phy.state))
+		return -ENODEV;
+
+	err = mt792x_mcu_ownership_acquire(dev);
+	if (err) {
+		dev_err(dev->mt76.dev,
+			"cannot acquire MCU ownership, aborting reset\n");
+		return err;
+	}
 
 	mt76_connac_free_pending_tx_skbs(&dev->pm, NULL);
 
@@ -65,6 +73,7 @@ int mt7921e_mac_reset(struct mt792x_dev *dev)
 	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0x0);
 
 	set_bit(MT76_MCU_RESET, &dev->mphy.state);
+	clear_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
 	wake_up(&dev->mt76.mcu.wait);
 	skb_queue_purge(&dev->mt76.mcu.res_q);
 
@@ -94,11 +103,6 @@ int mt7921e_mac_reset(struct mt792x_dev *dev)
 	dev->fw_assert = false;
 	clear_bit(MT76_MCU_RESET, &dev->mphy.state);
 
-	mt76_wr(dev, dev->irq_map->host_irq_enable,
-		dev->irq_map->tx.all_complete_mask |
-		MT_INT_RX_DONE_ALL | MT_INT_MCU_CMD);
-	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
-
 	err = mt7921e_driver_own(dev);
 	if (err)
 		goto out;
@@ -106,6 +110,14 @@ int mt7921e_mac_reset(struct mt792x_dev *dev)
 	err = mt7921_run_firmware(dev);
 	if (err)
 		goto out;
+
+	/* Enable interrupts after driver_own so the tasklet doesn't fire
+	 * on a device that doesn't have MCU ownership yet.
+	 */
+	mt76_wr(dev, dev->irq_map->host_irq_enable,
+		dev->irq_map->tx.all_complete_mask |
+		MT_INT_RX_DONE_ALL | MT_INT_MCU_CMD);
+	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
 
 	err = mt7921_mcu_set_eeprom(dev);
 	if (err)
