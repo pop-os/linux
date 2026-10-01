@@ -1,0 +1,561 @@
+Source: linux
+Section: devel
+Priority: optional
+Maintainer: Ubuntu Kernel Team <kernel-team@lists.ubuntu.com>
+XSC-Ubuntu-Compatible-Signing: ubuntu/4 pro/3 livepatch:2025 kmod:2025
+Rules-Requires-Root: no
+Standards-Version: 3.9.4.0
+Build-Depends:
+ gcc-15:native, gcc-15-aarch64-linux-gnu [arm64] <cross>, gcc-15-arm-linux-gnueabihf [armhf] <cross>, gcc-15-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-15-riscv64-linux-gnu [riscv64] <cross>, gcc-15-s390x-linux-gnu [s390x] <cross>, gcc-15-x86-64-linux-gnu [amd64] <cross>,
+ autoconf <!stage1>,
+ automake <!stage1>,
+ bc <!stage1>,
+ bindgen:native [amd64 arm64 armhf ppc64el riscv64 s390x],
+ bison <!stage1>,
+ clang-21:native [amd64 arm64 armhf ppc64el riscv64 s390x],
+ cpio,
+ curl <!stage1>,
+ debhelper-compat (= 10),
+ default-jdk-headless:native <!stage1>,
+ dkms <!stage1>,
+ flex <!stage1>,
+ gawk <!stage1>,
+ java-common <!stage1>,
+ kmod <!stage1>,
+ libaudit-dev <!stage1>,
+ libbpf-dev <!stage1>,
+ libcap-dev <!stage1>,
+ libdebuginfod-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
+ libdw-dev <!stage1>,
+ libelf-dev <!stage1>,
+ libiberty-dev <!stage1>,
+ libllvm21 <!stage1>,
+ liblzma-dev <!stage1>,
+ libnewt-dev <!stage1>,
+ libnl-3-dev,
+ libnl-genl-3-dev,
+ libnuma-dev [amd64 arm64 ppc64el s390x] <!stage1>,
+ libpci-dev <!stage1>,
+ libssl-dev <!stage1>,
+ libstdc++-dev,
+ libtool <!stage1>,
+ libtraceevent-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
+ libtracefs-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
+ libudev-dev <!stage1>,
+ libunwind8-dev [amd64 arm64 armhf ppc64el] <!stage1>,
+ llvm <!stage1>,
+ llvm-21-tools:native <!stage1>,
+ makedumpfile:native [amd64] <!stage1>,
+ openssl <!stage1>,
+ dwarves (>= 1.21) [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
+ pkg-config <!stage1>,
+ python3:native <!stage1>,
+ python3-dev:native <!stage1>,
+ libpython3-dev <!stage1> <cross>,
+ python3-setuptools,
+ rsync [!i386] <!stage1>,
+ rust-1.91-src:native [amd64 arm64 armhf ppc64el riscv64 s390x],
+ rustc-1.91:native (>= 1.82) [amd64 arm64 armhf ppc64el riscv64 s390x],
+ rustfmt-1.91:native [amd64 arm64 armhf ppc64el riscv64 s390x],
+ uuid-dev <!stage1>,
+ zstd <!stage1>,
+ bpftool:native [amd64 arm64 armhf ppc64el riscv64 s390x] <!stage1 cross>,
+Build-Depends-Indep:
+ asciidoc <!stage1>,
+ bzip2 <!stage1>,
+ python3-docutils <!stage1>,
+ sharutils <!stage1>,
+ xmlto <!stage1>,
+Vcs-Git: git://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux/+git/resolute
+XS-Testsuite: autopkgtest
+
+Package: linux-headers-7.2.6-76070206
+Build-Profiles: <!stage1>
+Architecture: all
+Multi-Arch: foreign
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}, coreutils
+Description: Header files related to Linux kernel version 7.2.6
+ This package provides kernel header files for version 7.2.6, for sites
+ that want the latest kernel headers. Please read
+ /usr/share/doc/linux-headers-7.2.6-76070206/debian.README.gz for details
+
+Package: linux-tools-7.2.6-76070206
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 ppc64el s390x
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}, ${shlibs:Depends}, linux-tools-common
+Description: Linux kernel version specific tools for version 7.2.6-76070206
+ This package provides the architecture dependant parts for kernel
+ version locked tools (such as perf and x86_energy_perf_policy) for
+ version 7.2.6-76070206.
+ You probably want to install linux-tools-7.2.6-76070206-<flavour>.
+
+Package: linux-cloud-tools-7.2.6-76070206
+Build-Profiles: <!stage1>
+Architecture: amd64
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}, ${shlibs:Depends}, linux-cloud-tools-common
+Description: Linux kernel version specific cloud tools for version 7.2.6-76070206
+ This package provides the architecture dependant parts for kernel
+ version locked tools for cloud tools for version 7.2.6-76070206.
+ You probably want to install linux-cloud-tools-7.2.6-76070206-<flavour>.
+
+# linux-meta {
+
+Package: linux-headers-generic
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 powerpc ppc64el s390x
+Section: kernel
+Depends:
+ ${misc:Depends},
+ linux-headers-7.2.6-76070206-generic (= ${source:Version})
+Description: Generic Linux kernel headers
+ This package will always depend on the latest generic kernel headers
+ available.
+
+Package: linux-image-generic
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 powerpc ppc64el s390x
+Section: kernel
+Provides: wireguard-modules (= 1.0.0)
+Depends:
+ ${misc:Depends},
+ linux-image-7.2.6-76070206-generic (= ${source:Version}),
+ linux-firmware,
+ intel-microcode [amd64],
+ amd64-microcode [amd64]
+Recommends: thermald [amd64]
+Description: Generic Linux kernel image
+ This package will always depend on the latest generic kernel image
+ available.
+
+Package: linux-tools-generic
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 powerpc ppc64el s390x
+Section: kernel
+Provides: linux-tools
+Depends:
+ ${misc:Depends},
+ linux-tools-7.2.6-76070206-generic (= ${source:Version})
+Description: Generic Linux kernel tools
+ This package will always depend on the latest generic kernel tools
+ available.
+
+Package: linux-cloud-tools-generic
+Build-Profiles: <!stage1>
+Architecture: amd64
+Section: kernel
+Provides: linux-cloud-tools
+Depends:
+ ${misc:Depends},
+ linux-cloud-tools-7.2.6-76070206-generic (= ${source:Version})
+Description: Generic Linux kernel cloud tools
+ This package will always depend on the latest generic kernel cloud tools
+ available.
+
+Package: linux-generic
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 powerpc ppc64el s390x
+Section: kernel
+Depends:
+ ${misc:Depends},
+ linux-image-generic (= ${binary:Version}),
+ linux-headers-generic (= ${binary:Version})
+Description: Complete Generic Linux kernel and headers
+ This package will always depend on the latest complete generic Linux kernel
+ and headers.
+
+# } linux-meta
+
+# linux-system76 {
+
+Package: linux-system76
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64
+Section: kernel
+Depends:
+ ${misc:Depends},
+ linux-generic (= ${binary:Version})
+Description: System76 recommended Linux kernel
+ This package depends upon the recommended kernel for System76 users.
+
+# } linux-system76
+
+Package: linux-libc-dev
+Architecture: amd64 arm64 ppc64el riscv64 s390x
+Depends: ${misc:Depends}
+Conflicts: linux-kernel-headers
+Replaces: linux-kernel-headers
+Provides: linux-kernel-headers, aufs-dev
+Multi-Arch: same
+Description: Linux Kernel Headers for development
+ This package provides headers from the Linux kernel.  These headers
+ are used by the installed headers for GNU glibc and other system
+ libraries. They are NOT meant to be used to build third-party modules for
+ your kernel. Use linux-headers-* packages for that.
+
+Package: linux-tools-common
+Build-Profiles: <!stage1>
+Architecture: all
+Multi-Arch: foreign
+Section: kernel
+Priority: optional
+Provides:
+ linux-cpupower,
+Recommends:
+ bpftool (>= 7.6.0+6.14.0-8~),
+ linux-perf,
+Depends: ${misc:Depends}, lsb-release, hwdata
+Description: Linux kernel version specific tools for version 7.2.6
+ This package provides the architecture independent parts for kernel
+ version locked tools (such as perf and x86_energy_perf_policy) for
+ version 7.2.6.
+
+Package: linux-cloud-tools-common
+Build-Profiles: <!stage1>
+Architecture: all
+Multi-Arch: foreign
+Section: kernel
+Priority: optional
+Depends: ${misc:Depends}
+Description: Linux kernel version specific cloud tools for version 7.2.6
+ This package provides the architecture independent parts for kernel
+ version locked tools for cloud tools for version 7.2.6.
+
+Package: linux-tools-host
+Build-Profiles: <!stage1>
+Architecture: all
+Multi-Arch: foreign
+Section: kernel
+Priority: optional
+Depends: ${misc:Depends}, python3
+Description: Linux kernel VM host tools
+ This package provides kernel tools useful for VM hosts.
+
+Package: linux-source-7.2.6
+Build-Profiles: <!stage1>
+Architecture: all
+Section: devel
+Priority: optional
+Provides: linux-source
+Depends: ${misc:Depends}, binutils, bzip2, coreutils
+Recommends: libc-dev, gcc, make
+Suggests: libncurses-dev | ncurses-dev, kernel-package
+Description: Linux kernel source for version 7.2.6 with Ubuntu patches
+ This package provides the source code for the Linux kernel version
+ 7.2.6.
+ .
+ This package is mainly meant for other packages to use, in order to build
+ custom flavours.
+ .
+ If you wish to use this package to create a custom Linux kernel, then it
+ is suggested that you investigate the package kernel-package, which has
+ been designed to ease the task of creating kernel image packages.
+ .
+ If you are simply trying to build third-party modules for your kernel,
+ you do not want this package. Install the appropriate linux-headers
+ package instead.
+
+Package: linux-bpf-dev
+Architecture: amd64 arm64 ppc64el riscv64 s390x
+Depends: ${misc:Depends}
+Multi-Arch: same
+Description: Headers for BPF development
+ The vmlinux.h header is provided to allow userspace to build BPF CO-RE
+ programs targeting the packaged kernel.
+
+Package: bpftool
+Architecture: amd64 arm64 ppc64el riscv64 s390x
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Breaks:
+  linux-tools-common (<< 6.14.0-8~),
+Replaces:
+  linux-tools-common (<< 6.14.0-8~),
+Description: Inspection and simple manipulation of BPF programs and maps
+ The bpftool command allows for inspection and simple modification of
+ Berkeley Packet Filter (BPF) objects on the system.
+
+Package: linux-perf
+Architecture: amd64 arm64 ppc64el riscv64 s390x
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Breaks:
+  linux-tools-common (<< 6.14.0-8~),
+Replaces:
+  linux-tools-common (<< 6.14.0-8~),
+Description: Performance analysis tools for Linux
+
+Package: linux-image-unsigned-7.2.6-76070206-generic
+Build-Profiles: <!stage1>
+Architecture: s390x
+Section: kernel
+Priority: optional
+Provides: linux-image, fuse-module, kvm-api-4, redhat-cluster-modules, ivtv-modules, virtualbox-guest-modules [amd64], ${linux:rprovides}
+Depends: ${misc:Depends}, ${shlibs:Depends}, kmod, linux-base (>= 4.5ubuntu1~16.04.1), linux-modules-7.2.6-76070206-generic
+Recommends: kernelstub [amd64] | grub-pc [amd64] | grub-efi-amd64 [amd64] | grub-efi-ia32 [amd64] | grub [amd64] | lilo [amd64] | flash-kernel [armhf arm64] | grub-efi-arm64 [arm64] | grub-efi-arm [armhf] | grub-ieee1275 [ppc64el], dracut | linux-initramfs-tool
+Breaks: flash-kernel (<< 3.90ubuntu2) [arm64 armhf], s390-tools (<< 2.3.0-0ubuntu3) [s390x]
+Conflicts: linux-image-7.2.6-76070206-generic
+Suggests: bpftool, linux-perf, linux-tools, linux-headers-7.2.6-76070206-generic
+Description: Linux kernel image for version 7.2.6
+ This package contains the unsigned Linux kernel image for version 7.2.6.
+ .
+ Supports Generic processors.
+ .
+ Geared toward desktop and server systems.
+ .
+ You likely do not want to install this package directly. Instead, install
+ the linux-generic meta-package, which will ensure that upgrades work
+ correctly, and that supporting packages are also installed.
+
+Package: linux-image-unsigned-7.2.6-76070206-generic-dbgsym
+Build-Profiles: <!stage1>
+Architecture: s390x
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}
+Provides: linux-debug
+Description: Linux kernel debug image for version 7.2.6
+ This package provides the unsigned kernel debug image for version 7.2.6.
+ .
+ This is for sites that wish to debug the kernel.
+ .
+ The kernel image contained in this package is NOT meant to boot from. It
+ is uncompressed, and unstripped. This package also includes the
+ unstripped modules.
+
+Package: linux-image-7.2.6-76070206-generic
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 ppc64el
+Section: kernel
+Priority: optional
+Provides: linux-image, fuse-module, kvm-api-4, redhat-cluster-modules, ivtv-modules, virtualbox-guest-modules [amd64], ${linux:rprovides}
+Depends: ${misc:Depends}, ${shlibs:Depends}, kmod, linux-base (>= 4.5ubuntu1~16.04.1), linux-modules-7.2.6-76070206-generic
+Recommends: kernelstub [amd64] | grub-pc [amd64] | grub-efi-amd64 [amd64] | grub-efi-ia32 [amd64] | grub [amd64] | lilo [amd64] | flash-kernel [armhf arm64] | grub-efi-arm64 [arm64] | grub-efi-arm [armhf] | grub-ieee1275 [ppc64el], dracut | linux-initramfs-tool
+Breaks: flash-kernel (<< 3.90ubuntu2) [arm64 armhf], s390-tools (<< 2.3.0-0ubuntu3) [s390x]
+Conflicts: linux-image-unsigned-7.2.6-76070206-generic
+Suggests: bpftool, linux-perf, linux-tools, linux-headers-7.2.6-76070206-generic
+Description: Linux kernel image for version 7.2.6
+ This package contains the Linux kernel image for version 7.2.6.
+ .
+ Supports Generic processors.
+ .
+ Geared toward desktop and server systems.
+ .
+ You likely do not want to install this package directly. Instead, install
+ the linux-generic meta-package, which will ensure that upgrades work
+ correctly, and that supporting packages are also installed.
+
+Package: linux-image-7.2.6-76070206-generic-dbgsym
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 ppc64el
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}
+Provides: linux-debug
+Description: Linux kernel debug image for version 7.2.6
+ This package provides the kernel debug image for version 7.2.6.
+ .
+ This is for sites that wish to debug the kernel.
+ .
+ The kernel image contained in this package is NOT meant to boot from. It
+ is uncompressed, and unstripped. This package also includes the
+ unstripped modules.
+
+
+Package: linux-modules-7.2.6-76070206-generic
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 ppc64el s390x
+Section: kernel
+Priority: optional
+Depends: ${misc:Depends}, ${shlibs:Depends}, wireless-regdb
+Built-Using: ${linux:BuiltUsing}
+Description: Linux kernel modules for version 7.2.6
+ Contains the corresponding System.map file, the modules built by the
+ packager, and scripts that try to ensure that the system is not left in an
+ unbootable state after an update.
+ .
+ Supports Generic processors.
+ .
+ Geared toward desktop and server systems.
+ .
+ You likely do not want to install this package directly. Instead, install
+ the linux-generic meta-package, which will ensure that upgrades work
+ correctly, and that supporting packages are also installed.
+
+Package: linux-headers-7.2.6-76070206-generic
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 ppc64el s390x
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}, linux-headers-7.2.6-76070206, ${shlibs:Depends}
+Provides: linux-headers, linux-headers-3.0
+Description: Linux kernel headers for version 7.2.6
+ This package provides kernel header files for version 7.2.6.
+ .
+ This is for sites that want the latest kernel headers.  Please read
+ /usr/share/doc/linux-headers-7.2.6-76070206/debian.README.gz for details.
+
+Package: linux-lib-rust-7.2.6-76070206-generic
+Build-Profiles: <!stage1>
+Architecture: amd64
+Multi-Arch: foreign
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}, coreutils
+Description: Rust library files related to Linux kernel version 7.2.6
+ This package provides kernel library files for version 7.2.6, that allow to
+ compile out-of-tree kernel modules written in Rust.
+
+Package: linux-tools-7.2.6-76070206-generic
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 ppc64el s390x
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}, linux-tools-7.2.6-76070206
+Description: Linux kernel version specific tools for version 7.2.6-76070206
+ This package provides the architecture dependant parts for kernel
+ version locked tools (such as x86_energy_perf_policy) for
+ version 7.2.6-76070206.
+
+Package: linux-cloud-tools-7.2.6-76070206-generic
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 ppc64el s390x
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}, linux-cloud-tools-7.2.6-76070206
+Description: Linux kernel version specific cloud tools for version 7.2.6-76070206
+ This package provides the architecture dependant parts for kernel
+ version locked tools for cloud for version 7.2.6-76070206.
+
+
+Package: linux-buildinfo-7.2.6-76070206-generic
+Build-Profiles: <!stage1>
+Architecture: amd64 arm64 ppc64el s390x
+Section: kernel
+Priority: optional
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Built-Using: ${linux:BuiltUsing}
+Description: Linux kernel buildinfo for version 7.2.6
+ This package contains the Linux kernel buildinfo for version 7.2.6.
+ .
+ You likely do not want to install this package.
+
+Package: linux-image-7.2.6-76070206-generic-64k
+Build-Profiles: <!stage1>
+Architecture: arm64
+Section: kernel
+Priority: optional
+Provides: linux-image, fuse-module, kvm-api-4, redhat-cluster-modules, ivtv-modules, ${linux:rprovides}
+Depends: ${misc:Depends}, ${shlibs:Depends}, kmod, linux-base (>= 4.5ubuntu1~16.04.1), linux-modules-7.2.6-76070206-generic-64k
+Recommends: grub-efi-arm64 [arm64] | flash-kernel [arm64], dracut | linux-initramfs-tool
+Breaks: flash-kernel (<< 3.90ubuntu2) [arm64 armhf], s390-tools (<< 2.3.0-0ubuntu3) [s390x]
+Conflicts: linux-image-unsigned-7.2.6-76070206-generic-64k
+Suggests: bpftool, linux-perf, linux-tools, linux-headers-7.2.6-76070206-generic-64k
+Description: Linux kernel image for version 7.2.6
+ This package contains the Linux kernel image for version 7.2.6.
+ .
+ Supports Generic 64K pages processors.
+ .
+ Geared toward desktop and server systems.
+ .
+ You likely do not want to install this package directly. Instead, install
+ the linux-generic-64k meta-package, which will ensure that upgrades work
+ correctly, and that supporting packages are also installed.
+
+Package: linux-image-7.2.6-76070206-generic-64k-dbgsym
+Build-Profiles: <!stage1>
+Architecture: arm64
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}
+Provides: linux-debug
+Description: Linux kernel debug image for version 7.2.6
+ This package provides the kernel debug image for version 7.2.6.
+ .
+ This is for sites that wish to debug the kernel.
+ .
+ The kernel image contained in this package is NOT meant to boot from. It
+ is uncompressed, and unstripped. This package also includes the
+ unstripped modules.
+
+
+Package: linux-modules-7.2.6-76070206-generic-64k
+Build-Profiles: <!stage1>
+Architecture: arm64
+Section: kernel
+Priority: optional
+Depends: ${misc:Depends}, ${shlibs:Depends}, wireless-regdb
+Built-Using: ${linux:BuiltUsing}
+Description: Linux kernel modules for version 7.2.6
+ Contains the corresponding System.map file, the modules built by the
+ packager, and scripts that try to ensure that the system is not left in an
+ unbootable state after an update.
+ .
+ Supports Generic 64K pages processors.
+ .
+ Geared toward desktop and server systems.
+ .
+ You likely do not want to install this package directly. Instead, install
+ the linux-generic-64k meta-package, which will ensure that upgrades work
+ correctly, and that supporting packages are also installed.
+
+Package: linux-headers-7.2.6-76070206-generic-64k
+Build-Profiles: <!stage1>
+Architecture: arm64
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}, linux-headers-7.2.6-76070206, ${shlibs:Depends}
+Provides: linux-headers, linux-headers-3.0
+Description: Linux kernel headers for version 7.2.6
+ This package provides kernel header files for version 7.2.6.
+ .
+ This is for sites that want the latest kernel headers.  Please read
+ /usr/share/doc/linux-headers-7.2.6-76070206/debian.README.gz for details.
+
+Package: linux-lib-rust-7.2.6-76070206-generic-64k
+Build-Profiles: <!stage1>
+Architecture: amd64
+Multi-Arch: foreign
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}, coreutils
+Description: Rust library files related to Linux kernel version 7.2.6
+ This package provides kernel library files for version 7.2.6, that allow to
+ compile out-of-tree kernel modules written in Rust.
+
+Package: linux-tools-7.2.6-76070206-generic-64k
+Build-Profiles: <!stage1>
+Architecture: arm64
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}, linux-tools-7.2.6-76070206
+Description: Linux kernel version specific tools for version 7.2.6-76070206
+ This package provides the architecture dependant parts for kernel
+ version locked tools (such as x86_energy_perf_policy) for
+ version 7.2.6-76070206.
+
+Package: linux-cloud-tools-7.2.6-76070206-generic-64k
+Build-Profiles: <!stage1>
+Architecture: arm64
+Section: devel
+Priority: optional
+Depends: ${misc:Depends}, linux-cloud-tools-7.2.6-76070206
+Description: Linux kernel version specific cloud tools for version 7.2.6-76070206
+ This package provides the architecture dependant parts for kernel
+ version locked tools for cloud for version 7.2.6-76070206.
+
+
+Package: linux-buildinfo-7.2.6-76070206-generic-64k
+Build-Profiles: <!stage1>
+Architecture: arm64
+Section: kernel
+Priority: optional
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Built-Using: ${linux:BuiltUsing}
+Description: Linux kernel buildinfo for version 7.2.6
+ This package contains the Linux kernel buildinfo for version 7.2.6.
+ .
+ You likely do not want to install this package.
