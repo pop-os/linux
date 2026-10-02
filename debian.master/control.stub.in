@@ -41,6 +41,7 @@ Build-Depends:
  libtracefs-dev [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
  libudev-dev <!stage1>,
  libunwind8-dev [amd64 arm64 armhf ppc64el] <!stage1>,
+ llvm <!stage1>,
  llvm-18-tools:native <!stage1>,
  makedumpfile:native [amd64] <!stage1>,
  openssl <!stage1>,
