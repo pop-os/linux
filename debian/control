@@ -6,13 +6,13 @@ XSC-Ubuntu-Compatible-Signing: ubuntu/4 pro/3 livepatch:2025 kmod:2025
 Rules-Requires-Root: no
 Standards-Version: 3.9.4.0
 Build-Depends:
- gcc-15:native, gcc-15-aarch64-linux-gnu [arm64] <cross>, gcc-15-arm-linux-gnueabihf [armhf] <cross>, gcc-15-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-15-riscv64-linux-gnu [riscv64] <cross>, gcc-15-s390x-linux-gnu [s390x] <cross>, gcc-15-x86-64-linux-gnu [amd64] <cross>,
+ gcc-11:native, gcc-11-aarch64-linux-gnu [arm64] <cross>, gcc-11-arm-linux-gnueabihf [armhf] <cross>, gcc-11-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-11-riscv64-linux-gnu [riscv64] <cross>, gcc-11-s390x-linux-gnu [s390x] <cross>, gcc-11-x86-64-linux-gnu [amd64] <cross>,
  autoconf <!stage1>,
  automake <!stage1>,
  bc <!stage1>,
  bindgen:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  bison <!stage1>,
- clang-21:native [amd64 arm64 armhf ppc64el riscv64 s390x],
+ clang-14:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  cpio,
  curl <!stage1>,
  debhelper-compat (= 10),
@@ -29,7 +29,7 @@ Build-Depends:
  libdw-dev <!stage1>,
  libelf-dev <!stage1>,
  libiberty-dev <!stage1>,
- libllvm21 <!stage1>,
+ libllvm14 <!stage1>,
  liblzma-dev <!stage1>,
  libnewt-dev <!stage1>,
  libnl-3-dev,
@@ -44,7 +44,7 @@ Build-Depends:
  libudev-dev <!stage1>,
  libunwind8-dev [amd64 arm64 armhf ppc64el] <!stage1>,
  llvm <!stage1>,
- llvm-21-tools:native <!stage1>,
+ llvm-14-tools:native <!stage1>,
  makedumpfile:native [amd64] <!stage1>,
  openssl <!stage1>,
  dwarves (>= 1.21) [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
@@ -204,7 +204,7 @@ Architecture: all
 Multi-Arch: foreign
 Section: kernel
 Priority: optional
-Provides:
+Provides: 
  linux-cpupower,
 Recommends:
  bpftool (>= 7.6.0+6.14.0-8~),
@@ -559,3 +559,4 @@ Description: Linux kernel buildinfo for version 7.2.6
  This package contains the Linux kernel buildinfo for version 7.2.6.
  .
  You likely do not want to install this package.
+

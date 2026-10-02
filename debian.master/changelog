@@ -1,6 +1,6 @@
-linux (7.2.6-070206.202609141300) resolute; urgency=low
+linux (7.2.6-76070206.202609141300) resolute; urgency=low
 
+  [ Mainline Build ]
   Mainline build at commit: v7.2.6
 
- -- Mainline Build <kernel@balboa>  Mon, 14 Sep 2026 13:00:59 +0000
-
+ -- Michael Murphy <mmstick@thelio-dev>  Fri, 02 Oct 2026 22:53:31 +0200
