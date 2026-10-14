@@ -240,10 +240,58 @@ struct mt7996_twt_flow {
 
 DECLARE_EWMA(avg_signal, 10, 8)
 
+enum {
+	VOW_SEARCH_AC_FIRST,
+	VOW_SEARCH_WMM_FIRST,
+};
+
+enum {
+	VOW_SCH_TYPE_FOLLOW_POLICY,
+	VOW_SCH_TYPE_FOLLOW_HW,
+};
+
+enum {
+	VOW_SCH_POLICY_SRR, /* Shared Round-Robin */
+	VOW_SCH_POLICY_WRR, /* Weighted Round-Robin */
+};
+
+/* VOW feature control (UNI_VOW_FEATURE_CTRL) word fields. The apply mask (DW0)
+ * and the control word (DW5) share these bit positions.
+ */
+#define VOW_FEATURE_APPLY_REFILL_PERIOD		BIT(0)
+#define VOW_FEATURE_REFILL_PERIOD		GENMASK(2, 0)
+#define VOW_FEATURE_BAND1_SEARCH_RULE		BIT(4)
+#define VOW_FEATURE_BAND0_SEARCH_RULE		BIT(5)
+#define VOW_FEATURE_WATF_EN			BIT(9)
+#define VOW_FEATURE_GRP_NO_CHANGE_IN_TXOP	BIT(12)
+#define VOW_FEATURE_ATF_EN			BIT(13)
+#define VOW_FEATURE_BWC_TOKEN_REFILL_EN		BIT(14)
+#define VOW_FEATURE_BWC_EN			BIT(15)
+
+/* ATF control word (DW8) */
+#define VOW_ATF_APPLY_KEEP_QUANTUM		BIT(2)
+#define VOW_ATF_KEEP_QUANTUM			BIT(3)
+#define VOW_ATF_APPLY_VOW_CTRL			BIT(24)
+#define VOW_ATF_VOW_CTRL_VAL			BIT(25)
+#define VOW_ATF_VOW_CTRL_BIT			GENMASK(30, 26)
+
+/* Scheduler control word (DW9) */
+#define VOW_SCH_APPLY_CTRL			BIT(6)
+#define VOW_SCH_TYPE				GENMASK(8, 7)
+#define VOW_SCH_POLICY				GENMASK(10, 9)
+
+enum vow_drr_ctrl_id {
+	VOW_DRR_CTRL_STA_ALL = 0x00,
+	VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND = 0x10,
+	VOW_DRR_CTRL_AIRTIME_QUANTUM_ALL = 0x28,
+	VOW_DRR_CTRL_STA_PAUSE = 0x30,
+};
+
 struct mt7996_sta_link {
 	struct mt76_wcid wcid; /* must be first */
 
 	struct mt7996_sta *sta;
+	bool connected;
 
 	struct list_head rc_list;
 	u32 airtime_ac[8];
@@ -263,11 +311,26 @@ struct mt7996_sta_link {
 	struct rcu_head rcu_head;
 };
 
+struct mt7996_sta_ba {
+	u16 ssn;
+	u16 buf_size;
+	bool amsdu;
+};
+
 struct mt7996_sta {
 	struct mt7996_sta_link deflink; /* must be first */
 	struct mt7996_sta_link __rcu *link[IEEE80211_MLD_MAX_NUM_LINKS];
 	u8 deflink_id;
 	u8 seclink_id;
+	u8 conn_state;
+
+	unsigned long wcid_flags;
+	u16 airtime_weight;
+
+	u16 ba_tx_mask;
+	u16 ba_rx_mask;
+	struct mt7996_sta_ba ba_tx[IEEE80211_NUM_TIDS];
+	struct mt7996_sta_ba ba_rx[IEEE80211_NUM_TIDS];
 
 	struct mt7996_vif *vif;
 };
@@ -279,6 +342,7 @@ struct mt7996_vif_link {
 	struct cfg80211_bitrate_mask bitrate_mask;
 
 	u8 mld_idx;
+	u8 bmc_bssid[ETH_ALEN];
 };
 
 struct mt7996_vif_link_info {
@@ -411,6 +475,7 @@ struct mt7996_dev {
 	struct mt7996_phy *radio_phy[MT7996_MAX_RADIOS];
 	struct wiphy_radio radios[MT7996_MAX_RADIOS];
 	struct wiphy_radio_freq_range radio_freqs[MT7996_MAX_RADIOS];
+	struct mac_address radio_addrs[MT7996_MAX_RADIOS];
 
 	struct mt7996_hif *hif2;
 	struct mt7996_reg_desc reg;
@@ -519,6 +584,8 @@ struct mt7996_dev {
 		u8 type:4;
 		u8 fem:4;
 	} var;
+
+	bool vow_atf_en;
 };
 
 enum {
@@ -642,6 +709,27 @@ mt7996_vif_conf_link(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 							    link_conf);
 }
 
+static inline u16
+mt7996_sta_airtime_weight(struct mt7996_sta *msta)
+{
+	/* mac80211 never passes 0, and drv_priv is zeroed only when
+	 * the station is allocated, so a weight survives a restart
+	 */
+	return msta->airtime_weight ?: IEEE80211_DEFAULT_AIRTIME_WEIGHT;
+}
+
+static inline struct mt76_vif_link *
+mt7996_offchannel_link(struct mt76_wcid *wcid)
+{
+	struct mt7996_sta_link *msta_link;
+	struct mt7996_vif_link *link;
+
+	msta_link = container_of(wcid, struct mt7996_sta_link, wcid);
+	link = container_of(msta_link, struct mt7996_vif_link, msta_link);
+
+	return &link->mt76;
+}
+
 static inline struct mt7996_sta_link *
 mt7996_sta_link(struct mt7996_sta *msta, u8 link_id)
 {
@@ -724,13 +812,20 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 int mt7996_mcu_teardown_mld_sta(struct mt7996_dev *dev,
 				struct mt7996_vif_link *link,
 				struct mt7996_sta_link *msta_link);
+int mt7996_mcu_update_mld_sta(struct mt7996_dev *dev,
+			      struct ieee80211_vif *vif,
+			      struct ieee80211_sta *sta,
+			      struct mt7996_vif_link *link,
+			      struct mt7996_sta_link *msta_link);
 void mt7996_mcu_update_sta_rec_bw(void *data, struct ieee80211_sta *sta);
 int mt7996_mcu_add_tx_ba(struct mt7996_dev *dev,
 			 struct ieee80211_ampdu_params *params,
-			 struct ieee80211_vif *vif, bool enable);
+			 struct ieee80211_vif *vif, unsigned long links,
+			 bool enable);
 int mt7996_mcu_add_rx_ba(struct mt7996_dev *dev,
 			 struct ieee80211_ampdu_params *params,
-			 struct ieee80211_vif *vif, bool enable);
+			 struct ieee80211_vif *vif, unsigned long links,
+			 bool enable);
 int mt7996_mcu_update_bss_color(struct mt7996_dev *dev,
 				struct mt76_vif_link *mlink,
 				struct cfg80211_he_bss_color *he_bss_color);
@@ -760,6 +855,11 @@ int mt7996_mcu_get_efuse_free_block(struct mt7996_dev *dev, u8 *block_num);
 int mt7996_mcu_get_chip_config(struct mt7996_dev *dev, u32 *cap);
 int mt7996_mcu_set_ser(struct mt7996_dev *dev, u8 action, u8 set, u8 band);
 int mt7996_mcu_set_txbf(struct mt7996_dev *dev, u8 action);
+int mt7996_mcu_set_vow_drr_ctrl(struct mt7996_dev *dev, u8 band_idx,
+				struct mt76_wcid *wcid, struct mt76_vif_link *mvif,
+				enum vow_drr_ctrl_id id, u16 weight);
+int mt7996_mcu_set_vow_feature_ctrl(struct mt7996_phy *phy);
+void mt7996_vow_init(struct mt7996_phy *phy);
 int mt7996_mcu_set_fcc5_lpn(struct mt7996_dev *dev, int val);
 int mt7996_mcu_set_pulse_th(struct mt7996_dev *dev,
 			    const struct mt7996_dfs_pulse *pulse);
@@ -771,11 +871,13 @@ int mt7996_mcu_set_protection(struct mt7996_phy *phy, struct mt7996_vif_link *li
 			      u8 ht_mode, bool use_cts_prot);
 int mt7996_mcu_set_timing(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 			  struct ieee80211_bss_conf *link_conf);
+int mt7996_mcu_set_bssid_mapping_addr(struct mt76_dev *dev, u8 band_idx);
 int mt7996_mcu_get_chan_mib_info(struct mt7996_phy *phy, bool chan_switch);
 int mt7996_mcu_get_temperature(struct mt7996_phy *phy);
 int mt7996_mcu_set_thermal_throttling(struct mt7996_phy *phy, u8 state);
 int mt7996_mcu_set_thermal_protect(struct mt7996_phy *phy, bool enable);
 int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy);
+int mt7996_mcu_set_tx_power_ctrl(struct mt7996_phy *phy, u8 power_ctrl_id, u8 data);
 int mt7996_mcu_rdd_resume_tx(struct mt7996_phy *phy);
 int mt7996_mcu_rdd_cmd(struct mt7996_dev *dev, int cmd, u8 rdd_idx, u8 val);
 int mt7996_mcu_rdd_background_enable(struct mt7996_phy *phy,
@@ -891,6 +993,8 @@ void mt7996_mac_twt_teardown_flow(struct mt7996_dev *dev,
 void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 				struct ieee80211_sta *sta,
 				unsigned int link_id, bool flush);
+u16 mt7996_mac_sta_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			 struct ieee80211_sta *sta);
 void mt7996_mac_add_twt_setup(struct ieee80211_hw *hw,
 			      struct ieee80211_sta *sta,
 			      struct ieee80211_twt_setup *twt);
@@ -926,6 +1030,8 @@ int mt7996_mcu_wtbl_update_hdr_trans(struct mt7996_dev *dev,
 				     struct ieee80211_vif *vif,
 				     struct mt7996_vif_link *link,
 				     struct mt7996_sta_link *msta_link);
+int mt7996_mcu_ps_leave(struct mt7996_dev *dev, struct mt7996_vif_link *link,
+			struct mt7996_sta_link *msta_link);
 int mt7996_mcu_cp_support(struct mt7996_dev *dev, u8 mode);
 int mt7996_mcu_set_emlsr_mode(struct mt7996_dev *dev,
 			      struct ieee80211_vif *vif,
@@ -941,10 +1047,6 @@ void mt7996_link_sta_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *
 int mt7996_mmio_wed_init(struct mt7996_dev *dev, void *pdev_ptr,
 			 bool hif2, int *irq);
 u32 mt7996_wed_init_buf(void *ptr, dma_addr_t phys, int token_id);
-
-#ifdef CONFIG_MTK_DEBUG
-int mt7996_mtk_init_debugfs(struct mt7996_phy *phy, struct dentry *dir);
-#endif
 
 int mt7996_dma_rro_init(struct mt7996_dev *dev);
 void mt7996_dma_rro_start(struct mt7996_dev *dev);

@@ -284,6 +284,9 @@ struct mt7996_mcu_wed_rro_ba_delete_event {
 	__le16 len;
 
 	__le16 session_id;
+	__le16 wlan_id;
+	u8 tid;
+	u8 __rsv1;
 	u8 __rsv2[2];
 } __packed;
 
@@ -291,6 +294,39 @@ enum  {
 	UNI_WED_RRO_BA_SESSION_STATUS,
 	UNI_WED_RRO_BA_SESSION_TBL,
 	UNI_WED_RRO_BA_SESSION_DELETE,
+};
+
+struct mt7996_mcu_ps_sync_event {
+	struct mt7996_mcu_rxd rxd;
+
+	u8 bss_idx;
+	u8 __rsv[3];
+} __packed;
+
+struct mt7996_mcu_ps_client_info {
+	__le16 tag;
+	__le16 len;
+	u8 ps_bit;
+	u8 __rsv;
+	__le16 wlan_idx;
+	u8 buffer_size;
+	u8 __rsv2[3];
+} __packed;
+
+struct mt7996_mcu_ps_multi_client_info {
+	__le16 tag;
+	__le16 len;
+	__le16 sta_cnt;
+	__le16 sta_ps_info[];
+} __packed;
+
+#define MT7996_PS_MULTI_WCID	GENMASK(10, 0)
+#define MT7996_PS_MULTI_PS_BIT	BIT(15)
+
+enum {
+	UNI_PS_CLIENT_INFO = 0,
+	UNI_PS_MULTI_CLIENT_INFO = 1,
+	UNI_PS_MULTI_CLIENT_INFO_BITMAP = 2,
 };
 
 struct mt7996_mcu_thermal_notify {
@@ -680,6 +716,12 @@ struct sta_rec_hdr_trans {
 	u8 mesh;
 } __packed;
 
+struct sta_rec_ps_leave {
+	__le16 tag;
+	__le16 len;
+	u8 __rsv[4];
+} __packed;
+
 struct sta_rec_mld_setup {
 	__le16 tag;
 	__le16 len;
@@ -927,6 +969,7 @@ enum {
 	UNI_BAND_CONFIG_RADIO_ENABLE,
 	UNI_BAND_CONFIG_RTS_THRESHOLD = 0x08,
 	UNI_BAND_CONFIG_MAC_ENABLE_CTRL = 0x0c,
+	UNI_BAND_CONFIG_BSSID_MAPPING_ADDR = 0x12,
 };
 
 enum {
@@ -952,6 +995,7 @@ enum {
 
 enum {
 	UNI_VOW_DRR_CTRL,
+	UNI_VOW_FEATURE_CTRL,
 	UNI_VOW_RX_AT_AIRTIME_EN = 0x0b,
 	UNI_VOW_RX_AT_AIRTIME_CLR_EN = 0x0e,
 };
@@ -996,8 +1040,31 @@ enum {
 	UNI_CMD_THERMAL_PROTECT_DUTY_CONFIG,
 };
 
+struct tx_power_ctrl {
+	u8 _rsv[4];
+
+	__le16 tag;
+	__le16 len;
+
+	u8 power_ctrl_id;
+	union {
+		bool sku_enable;
+		bool ate_mode_enable;
+		bool percentage_ctrl_enable;
+		bool bf_backoff_enable;
+		u8 power_drop_level;
+	};
+	u8 band_idx;
+	u8 rsv[1];
+} __packed;
+
 enum {
+	UNI_TXPOWER_SKU_POWER_LIMIT_CTRL = 0,
+	UNI_TXPOWER_PERCENTAGE_CTRL = 1,
+	UNI_TXPOWER_PERCENTAGE_DROP_CTRL = 2,
+	UNI_TXPOWER_BACKOFF_POWER_LIMIT_CTRL = 3,
 	UNI_TXPOWER_POWER_LIMIT_TABLE_CTRL = 4,
+	UNI_TXPOWER_ATE_MODE_CTRL = 6,
 };
 
 enum {
