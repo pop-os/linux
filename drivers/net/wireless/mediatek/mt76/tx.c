@@ -129,7 +129,7 @@ mt76_tx_status_skb_add(struct mt76_dev *dev, struct mt76_wcid *wcid,
 
 	memset(cb, 0, sizeof(*cb));
 
-	if (!wcid || !rcu_access_pointer(dev->wcid[wcid->idx]))
+	if (!wcid)
 		return MT_PACKET_ID_NO_ACK;
 
 	if (info->flags & IEEE80211_TX_CTL_NO_ACK)
@@ -146,6 +146,11 @@ mt76_tx_status_skb_add(struct mt76_dev *dev, struct mt76_wcid *wcid,
 	}
 
 	spin_lock_bh(&dev->status_lock);
+
+	if (rcu_access_pointer(dev->wcid[wcid->idx]) != wcid) {
+		pid = MT_PACKET_ID_NO_ACK;
+		goto out;
+	}
 
 	pid = idr_alloc(&wcid->pktid, skb, MT_PACKET_ID_FIRST,
 			MT_PACKET_ID_MASK, GFP_ATOMIC);
@@ -415,15 +420,22 @@ mt76_txq_dequeue(struct mt76_phy *phy, struct mt76_txq *mtxq)
 
 static void
 mt76_queue_ps_skb(struct mt76_phy *phy, struct ieee80211_sta *sta,
-		  struct sk_buff *skb, bool last)
+		  struct sk_buff *skb, bool last,
+		  enum ieee80211_frame_release_type reason)
 {
 	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 
 	info->control.flags |= IEEE80211_TX_CTRL_PS_RESPONSE;
-	if (last)
+	if (last) {
 		info->flags |= IEEE80211_TX_STATUS_EOSP |
 			       IEEE80211_TX_CTL_REQ_TX_STATUS;
+
+		if (reason == IEEE80211_FRAME_RELEASE_UAPSD &&
+		    ieee80211_is_data_qos(hdr->frame_control))
+			*ieee80211_get_qos_ctl(hdr) |= IEEE80211_QOS_CTL_EOSP;
+	}
 
 	mt76_skb_set_moredata(skb, !last);
 	__mt76_tx_queue_skb(phy, MT_TXQ_PSD, skb, wcid, sta, NULL);
@@ -457,14 +469,15 @@ mt76_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 
 			nframes--;
 			if (last_skb)
-				mt76_queue_ps_skb(phy, sta, last_skb, false);
+				mt76_queue_ps_skb(phy, sta, last_skb, false,
+						  reason);
 
 			last_skb = skb;
 		} while (nframes);
 	}
 
 	if (last_skb) {
-		mt76_queue_ps_skb(phy, sta, last_skb, true);
+		mt76_queue_ps_skb(phy, sta, last_skb, true, reason);
 		dev->queue_ops->kick(dev, hwq);
 	} else {
 		ieee80211_sta_eosp(sta);
@@ -496,8 +509,6 @@ mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
 
 	if (test_bit(MT_WCID_FLAG_PS, &wcid->flags)) {
 		if (!(dev->drv->drv_flags & MT_DRV_HW_PS_BUFFERING))
-			return 0;
-		if (ieee80211_txq_aql_pending(phy->hw, txq))
 			return 0;
 	}
 
@@ -591,10 +602,22 @@ mt76_txq_schedule_list(struct mt76_phy *phy, enum mt76_txq_id qid)
 			if (!mt76_txq_stopped(q))
 				n_frames = mt76_txq_send_burst(phy, q, mtxq, wcid);
 
-			ieee80211_return_txq(phy->hw, txq, false);
-
 			if (unlikely(n_frames < 0))
 				return n_frames;
+
+			/*
+			 * Keep the station in the airtime scheduler only while it
+			 * makes progress or the shared queue is stopped. A PS
+			 * station that cannot be drained consumes no airtime, so
+			 * its DRR deficit never goes negative and returning it here
+			 * would pin it at the head of the device-wide active_txqs
+			 * list, starving all other stations on every band. Leave it
+			 * unscheduled instead and let mt76_tx_complete_skb() re-arm
+			 * it once a buffered frame completes.
+			 */
+			if (n_frames > 0 || mt76_txq_stopped(q))
+				ieee80211_return_txq(phy->hw, txq, false);
+
 			ret += n_frames;
 			continue;
 		}
@@ -675,7 +698,6 @@ mt76_txq_schedule_pending_wcid(struct mt76_phy *phy, struct mt76_wcid *wcid,
 		    (!(wcid->tx_info & MT_WCID_TX_INFO_SET) ||
 		     !ieee80211_is_bufferable_mmpdu(skb) ||
 		     ieee80211_is_deauth(hdr->frame_control) ||
-		     ieee80211_is_disassoc(hdr->frame_control) ||
 		     head == &wcid->tx_offchannel))
 			qid = MT_TXQ_PSD;
 
@@ -877,7 +899,7 @@ int mt76_skb_adjust_pad(struct sk_buff *skb, int pad)
 		}
 	}
 
-	if (skb_pad(last, pad))
+	if (__skb_pad(last, pad, false))
 		return -ENOMEM;
 
 	__skb_put(last, pad);
