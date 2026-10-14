@@ -83,6 +83,67 @@ enum {
 	REPEATER_BSSID_MAX = 0x3f,
 };
 
+#define VOW_DRR_QUANTUM_NUM	8
+
+/* Per-level DRR airtime quantum (unit: 256us). Halved from the hardware's
+ * default assignment so that scaling down from the mac80211-provided airtime
+ * weight maps onto the available levels.
+ */
+#define VOW_DRR_QUANTUM_TABLE	{ 3, 6, 8, 10, 12, 14, 16, 18 }
+
+/* Airtime token refill period; the value is the log2 of the period in us. */
+enum {
+	VOW_REFILL_PERIOD_1US,
+	VOW_REFILL_PERIOD_2US,
+	VOW_REFILL_PERIOD_4US,
+	VOW_REFILL_PERIOD_8US,
+	VOW_REFILL_PERIOD_16US,
+	VOW_REFILL_PERIOD_32US,
+	VOW_REFILL_PERIOD_64US,
+	VOW_REFILL_PERIOD_128US,
+};
+
+/* Max airtime deficit bound (unit: 256us): generous while ATF is enabled,
+ * minimal when disabled.
+ */
+#define VOW_MAX_DEFICIT_ON	64
+#define VOW_MAX_DEFICIT_OFF	1
+
+/* Layout of the per-station DRR config value (VOW_DRR_CTRL_STA_ALL). The AC
+ * quantum fields are in hardware (LMAC) order, i.e. AC0 = BK ... AC3 = VO.
+ */
+#define VOW_DRR_STA_BSS_GRP_MASK	GENMASK(5, 0)
+#define VOW_DRR_STA_AC0_QNTM_MASK	GENMASK(10, 8)
+#define VOW_DRR_STA_AC1_QNTM_MASK	GENMASK(14, 12)
+#define VOW_DRR_STA_AC2_QNTM_MASK	GENMASK(18, 16)
+#define VOW_DRR_STA_AC3_QNTM_MASK	GENMASK(22, 20)
+
+/* A station references one of the global DWRR quantum levels per AC. The
+ * mac80211 airtime weight spans a wider, finer range than the eight hardware
+ * levels and differs from them by orders of magnitude, so map it onto a quantum
+ * index logarithmically, centring the default weight (256) on index 3. Voice
+ * and video are biased down by two and one octaves respectively, giving
+ * latency-sensitive traffic smaller, more frequently refilled quanta.
+ */
+static inline u8 mt76_connac_vow_dwrr_quantum(u16 weight, u8 ac)
+{
+	u32 w = weight;
+	int idx;
+
+	switch (ac) {
+	case IEEE80211_AC_VO:
+		w /= 4;
+		break;
+	case IEEE80211_AC_VI:
+		w /= 2;
+		break;
+	}
+
+	idx = 3 + ilog2(w) - ilog2(IEEE80211_DEFAULT_AIRTIME_WEIGHT);
+
+	return clamp(idx, 0, VOW_DRR_QUANTUM_NUM - 1);
+}
+
 struct mt76_connac_reg_map {
 	u32 phys;
 	u32 maps;
@@ -179,7 +240,7 @@ extern const struct wiphy_wowlan_support mt76_connac_wowlan_support;
 
 static inline bool is_connac3(struct mt76_dev *dev)
 {
-	return mt76_chip(dev) == 0x7925 || mt76_chip(dev) == 0x7927;
+	return mt76_chip(dev) == 0x7925 || mt76_chip(dev) == 0x7927 || mt76_chip(dev) == 0x7928;
 }
 
 static inline bool is_mt7925(struct mt76_dev *dev)
@@ -190,6 +251,11 @@ static inline bool is_mt7925(struct mt76_dev *dev)
 static inline bool is_mt7927(struct mt76_dev *dev)
 {
 	return mt76_chip(dev) == 0x7927;
+}
+
+static inline bool is_mt7928(struct mt76_dev *dev)
+{
+	return mt76_chip(dev) == 0x7928;
 }
 
 static inline bool is_320mhz_supported(struct mt76_dev *dev)
@@ -301,6 +367,7 @@ static inline bool is_mt76_fw_txp(struct mt76_dev *dev)
 	case 0x7902:
 	case 0x7925:
 	case 0x7927:
+	case 0x7928:
 	case 0x7663:
 	case 0x7622:
 		return false;

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
+ccflags-y += -Werror -DCONFIG_MT76_LEDS
 obj-$(CONFIG_MT7603E) += mt7603e.o
 
 mt7603e-y := \
