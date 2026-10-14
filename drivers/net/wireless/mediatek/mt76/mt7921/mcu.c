@@ -3,6 +3,7 @@
 
 #include <linux/fs.h>
 #include <linux/firmware.h>
+#include <linux/of.h>
 #include "mt7921.h"
 #include "regd.h"
 #include "mcu.h"
@@ -351,8 +352,10 @@ void mt7921_mcu_rx_event(struct mt792x_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_connac2_mcu_rxd *rxd;
 
-	if (skb_linearize(skb))
+	if (skb_linearize(skb)) {
+		dev_kfree_skb(skb);
 		return;
+	}
 
 	rxd = (struct mt76_connac2_mcu_rxd *)skb->data;
 
@@ -475,22 +478,17 @@ static int mt7921_load_clc(struct mt792x_dev *dev, const char *fw_name)
 
 	for (offset = 0; offset < len; offset += clc_len) {
 		if (len - offset < sizeof(*clc)) {
-			dev_err(mdev->dev, "Invalid CLC record\n");
 			ret = -EINVAL;
 			goto out;
 		}
 
 		clc = (const struct mt7921_clc *)(clc_base + offset);
 		clc_len = le32_to_cpu(clc->len);
-		if (clc_len < sizeof(*clc) || clc_len > len - offset) {
-			dev_err(mdev->dev, "Invalid CLC record\n");
+		if (clc_len < sizeof(*clc) || clc_len > len - offset ||
+		    clc->idx >= ARRAY_SIZE(phy->clc)) {
 			ret = -EINVAL;
 			goto out;
 		}
-
-		/* Newer firmware may add records this driver does not use yet */
-		if (clc->idx >= ARRAY_SIZE(phy->clc))
-			continue;
 
 		/* do not init buf again if chip reset triggered */
 		if (phy->clc[clc->idx])
@@ -673,6 +671,10 @@ int mt7921_run_firmware(struct mt792x_dev *dev)
 	if (err)
 		return err;
 	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
+
+	err = mt7921_mcu_set_thermal_protect(dev);
+	if (err)
+		return err;
 
 	return mt7921_mcu_fw_log_2_host(dev, 1);
 }
@@ -920,7 +922,8 @@ int mt7921_mcu_set_chan_info(struct mt792x_phy *phy, int cmd)
 		req.channel_band = chandef->chan->band;
 
 	if (cmd == MCU_EXT_CMD(SET_RX_PATH) ||
-	    dev->mt76.hw->conf.flags & IEEE80211_CONF_MONITOR)
+	    (dev->mt76.hw->conf.flags & IEEE80211_CONF_MONITOR &&
+	     !phy->mt76->offchannel))
 		req.switch_reason = CH_SWITCH_NORMAL;
 	else if (phy->mt76->offchannel)
 		req.switch_reason = CH_SWITCH_SCAN_BYPASS_DPD;
@@ -1229,7 +1232,7 @@ int mt7921_mcu_config_sniffer(struct mt792x_vif *vif,
 			.len = cpu_to_le16(sizeof(req.tlv)),
 			.control_ch = chandef->chan->hw_value,
 			.center_ch = ieee80211_frequency_to_channel(freq1),
-			.drop_err = 1,
+			.drop_err = !(vif->phy->rxfilter & MT7921_FILTER_FCSFAIL),
 		},
 	};
 	if (chandef->chan->band < ARRAY_SIZE(ch_band))
@@ -1357,6 +1360,7 @@ int __mt7921_mcu_set_clc(struct mt792x_dev *dev, u8 *alpha2,
 		.acpi_conf = mt792x_acpi_get_flags(&dev->phy),
 		.mtcl_conf = mt792x_acpi_get_mtcl_conf(&dev->phy, alpha2),
 	};
+	struct device_node *np;
 	int ret, valid_cnt = 0;
 	u32 buf_len = 0;
 	u8 *pos;
@@ -1366,8 +1370,11 @@ int __mt7921_mcu_set_clc(struct mt792x_dev *dev, u8 *alpha2,
 
 	if (dev->phy.chip_cap & MT792x_CHIP_CAP_CLC_EVT_EN)
 		req.cap |= CLC_CAP_EVT_EN;
-	if (mt76_find_power_limits_node(&dev->mt76))
+
+	np = mt76_find_power_limits_node(&dev->mt76);
+	if (np)
 		req.cap |= CLC_CAP_DTS_EN;
+	of_node_put(np);
 
 	buf_len = le32_to_cpu(clc->len) - sizeof(*clc);
 	pos = clc->data;
@@ -1428,6 +1435,9 @@ int mt7921_mcu_set_clc(struct mt792x_dev *dev, u8 *alpha2,
 
 	/* submit all clc config */
 	for (i = 0; i < ARRAY_SIZE(phy->clc); i++) {
+		if (i == MT792x_CLC_REGD)
+			continue;
+
 		ret = __mt7921_mcu_set_clc(dev, alpha2, env_cap,
 					   phy->clc[i], i);
 
@@ -1472,6 +1482,19 @@ int mt7921_mcu_wf_rf_pin_ctrl(struct mt792x_phy *phy, u8 action)
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(WF_RF_PIN_CTRL), &req,
 				 sizeof(req), action ? true : false);
+}
+
+#define MT7921_THERMAL_PROT_LOW_TEMP	105
+#define MT7921_THERMAL_PROT_HIGH_TEMP	115
+
+int mt7921_mcu_set_thermal_protect(struct mt792x_dev *dev)
+{
+	char cmd[64];
+
+	snprintf(cmd, sizeof(cmd), "DowngradeTxStreamTemp %d %d",
+		 MT7921_THERMAL_PROT_LOW_TEMP, MT7921_THERMAL_PROT_HIGH_TEMP);
+
+	return mt76_connac_mcu_chip_config(&dev->mt76, cmd);
 }
 
 int mt7921_mcu_set_rxfilter(struct mt792x_dev *dev, u32 fif,

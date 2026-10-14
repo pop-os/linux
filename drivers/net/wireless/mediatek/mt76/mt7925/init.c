@@ -137,8 +137,16 @@ static int mt7925_init_hardware(struct mt792x_dev *dev)
 	set_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
 
 	for (i = 0; i < MT792x_MCU_INIT_RETRY_COUNT; i++) {
+		if (atomic_read(&dev->mt76.bus_hung)) {
+			ret = -EIO;
+			break;
+		}
+
 		ret = __mt7925_init_hardware(dev);
 		if (!ret)
+			break;
+
+		if (atomic_read(&dev->mt76.bus_hung))
 			break;
 
 		mt792x_init_reset(dev);
@@ -148,6 +156,33 @@ static int mt7925_init_hardware(struct mt792x_dev *dev)
 		dev_err(dev->mt76.dev, "hardware init failed\n");
 		return ret;
 	}
+
+	return 0;
+}
+
+static int mt7925_init_nan_cap(struct mt76_dev *mdev)
+{
+	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
+	const struct ieee80211_sta_he_cap *he_cap;
+	struct ieee80211_supported_band *sband;
+	struct wiphy *wiphy = mdev->hw->wiphy;
+
+	if (!(dev->fw_features & MT792x_FW_CAP_NAN))
+		return 0;
+
+	sband = wiphy->bands[NL80211_BAND_2GHZ];
+	if (sband)
+		wiphy->nan_capa.phy.ht = sband->ht_cap;
+
+	sband = wiphy->bands[NL80211_BAND_5GHZ];
+	if (sband)
+		wiphy->nan_capa.phy.vht = sband->vht_cap;
+
+	sband = wiphy->bands[NL80211_BAND_2GHZ];
+	he_cap = sband ? ieee80211_get_he_iftype_cap(sband, NL80211_IFTYPE_NAN)
+		       : NULL;
+	if (he_cap)
+		wiphy->nan_capa.phy.he = *he_cap;
 
 	return 0;
 }
@@ -171,6 +206,8 @@ static void mt7925_init_work(struct work_struct *work)
 		dev_err(dev->mt76.dev, "MLO init failed\n");
 		return;
 	}
+
+	dev->mt76.init_wiphy = mt7925_init_nan_cap;
 
 	ret = mt76_register_device(&dev->mt76, true, mt76_rates,
 				   ARRAY_SIZE(mt76_rates));
@@ -233,6 +270,8 @@ int mt7925_register_device(struct mt792x_dev *dev)
 
 	INIT_WORK(&dev->reset_work, mt7925_mac_reset_work);
 	INIT_WORK(&dev->init_work, mt7925_init_work);
+	INIT_WORK(&dev->nan_deferred_work, mt7925_nan_deferred_work);
+	spin_lock_init(&dev->nan_deferred_lock);
 
 	INIT_WORK(&dev->phy.roc_work, mt7925_roc_work);
 	timer_setup(&dev->phy.roc_timer, mt792x_roc_timer, 0);
@@ -286,7 +325,7 @@ int mt7925_register_device(struct mt792x_dev *dev)
 	dev->mphy.hw->wiphy->available_antennas_rx = dev->mphy.chainmask;
 	dev->mphy.hw->wiphy->available_antennas_tx = dev->mphy.chainmask;
 
-	queue_work(system_percpu_wq, &dev->init_work);
+	queue_work(system_wq, &dev->init_work);
 
 	return 0;
 }

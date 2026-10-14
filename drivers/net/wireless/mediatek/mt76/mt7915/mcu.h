@@ -54,6 +54,15 @@ struct mt7915_mcu_bcc_notify {
 	u8 rsv;
 } __packed;
 
+struct mt7915_mcu_ps_notify {
+	struct mt76_connac2_mcu_rxd_hdr rxd;
+
+	u8 wtbl_lower;
+	u8 ps_bit;
+	u8 wtbl_higher;
+	u8 rsv;
+} __packed;
+
 struct mt7915_mcu_rdd_report {
 	struct mt76_connac2_mcu_rxd_hdr rxd;
 
@@ -278,6 +287,7 @@ enum {
 	MCU_WA_PARAM_PDMA_RX = 0x04,
 	MCU_WA_PARAM_CPU_UTIL = 0x0b,
 	MCU_WA_PARAM_RED = 0x0e,
+	MCU_WA_PARAM_WED_VERSION = 0x32,
 	MCU_WA_PARAM_RED_SETTING = 0x40,
 };
 
