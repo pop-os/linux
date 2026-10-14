@@ -490,9 +490,6 @@ int mt7996_mmio_wed_init(struct mt7996_dev *dev, void *pdev_ptr,
 	if (!wed_enable)
 		return 0;
 
-	if (hif2 && !mtk_wed_device_active(&dev->mt76.mmio.wed))
-		return 0;
-
 	hif1_ofs = dev->hif2 ? MT_WFDMA0_PCIE1(0) - MT_WFDMA0(0) : 0;
 
 	if (hif2)
@@ -838,7 +835,8 @@ struct mt7996_dev *mt7996_mmio_probe(struct device *pdev,
 		.link_data_size = sizeof(struct mt7996_vif_link),
 		.drv_flags = MT_DRV_TXWI_NO_FREE |
 			     MT_DRV_AMSDU_OFFLOAD |
-			     MT_DRV_HW_MGMT_TXQ,
+			     MT_DRV_HW_MGMT_TXQ |
+			     MT_DRV_HW_PS_BUFFERING,
 		.survey_flags = SURVEY_INFO_TIME_TX |
 				SURVEY_INFO_TIME_RX |
 				SURVEY_INFO_TIME_BSS_RX,

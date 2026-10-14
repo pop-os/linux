@@ -177,15 +177,40 @@ static const struct thermal_cooling_device_ops mt7915_thermal_ops = {
 	.set_cur_state = mt7915_thermal_set_cur_throttle_state,
 };
 
+static int mt7915_thermal_get_temp(struct thermal_zone_device *tz, int *temp)
+{
+	struct mt7915_phy *phy = thermal_zone_device_priv(tz);
+	int val;
+
+	mutex_lock(&phy->dev->mt76.mutex);
+	val = mt7915_mcu_get_temperature(phy);
+	mutex_unlock(&phy->dev->mt76.mutex);
+	if (val < 0)
+		return val;
+
+	*temp = val * 1000;
+	return 0;
+}
+
+static const struct thermal_zone_device_ops mt7915_tz_ops = {
+	.get_temp = mt7915_thermal_get_temp,
+};
+
 static void mt7915_unregister_thermal(struct mt7915_phy *phy)
 {
 	struct wiphy *wiphy = phy->mt76->hw->wiphy;
+
+	if (phy->tzone) {
+		devm_thermal_of_zone_unregister(phy->dev->mt76.dev, phy->tzone);
+		phy->tzone = NULL;
+	}
 
 	if (!phy->cdev)
 		return;
 
 	sysfs_remove_link(&wiphy->dev.kobj, "cooling_device");
 	thermal_cooling_device_unregister(phy->cdev);
+	phy->cdev = NULL;
 }
 
 static int mt7915_thermal_init(struct mt7915_phy *phy)
@@ -213,12 +238,28 @@ static int mt7915_thermal_init(struct mt7915_phy *phy)
 	phy->throttle_temp[MT7915_CRIT_TEMP_IDX] = MT7915_CRIT_TEMP;
 	phy->throttle_temp[MT7915_MAX_TEMP_IDX] = MT7915_MAX_TEMP;
 
+	phy->tzone = devm_thermal_of_zone_register(phy->dev->mt76.dev,
+						   phy->mt76->band_idx, phy,
+						   &mt7915_tz_ops);
+	if (IS_ERR(phy->tzone)) {
+		if (PTR_ERR(phy->tzone) != -ENODEV)
+			dev_warn(phy->dev->mt76.dev,
+				 "failed to register thermal zone %d: %ld\n",
+				 phy->mt76->band_idx, PTR_ERR(phy->tzone));
+		phy->tzone = NULL;
+	}
+
 	if (!IS_REACHABLE(CONFIG_HWMON))
 		return 0;
 
 	hwmon = devm_hwmon_device_register_with_groups(&wiphy->dev, name, phy,
 						       mt7915_hwmon_groups);
-	return PTR_ERR_OR_ZERO(hwmon);
+	if (IS_ERR(hwmon)) {
+		mt7915_unregister_thermal(phy);
+		return PTR_ERR(hwmon);
+	}
+
+	return 0;
 }
 
 static void mt7915_led_set_config(struct led_classdev *led_cdev,
@@ -414,6 +455,9 @@ mt7915_init_wiphy(struct mt7915_phy *phy)
 	ieee80211_hw_set(hw, SUPPORTS_TX_FRAG);
 
 	hw->max_tx_fragments = 4;
+
+	if (!phy->dev->dbdc_support)
+		wiphy->txq_memory_limit = 32 << 20; /* 32 MiB */
 
 	if (phy->mt76->cap.has_2ghz) {
 		phy->mt76->sband_2g.sband.ht_cap.cap |=
@@ -617,6 +661,33 @@ mt7915_init_led_mux(struct mt7915_dev *dev)
 	}
 }
 
+void mt7915_vow_init(struct mt7915_dev *dev)
+{
+	dev->vow_atf_en = true;
+
+	mt7915_mcu_set_vow_drr_ctrl(dev, NULL, VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND, 0);
+	mt7915_mcu_set_vow_drr_ctrl(dev, NULL, VOW_DRR_CTRL_AIRTIME_QUANTUM_ALL, 0);
+	mt7915_mcu_set_vow_feature_ctrl(dev);
+}
+
+/* Assignment of BSS group index aligns FW.
+ * 0: Band 0 - BSS 0
+ * 4: Band 1 - BSS 0
+ * 9..23: Band 0 - BSS 0x11..0x1f
+ * 25..39: Band 1 - BSS 0x11..0x1f
+ */
+u8 mt7915_vow_sta_bss_grp(struct mt76_vif_link *mvif)
+{
+	const u8 hw_bssid_num = HW_BSSID_MAX + 1;
+
+	if (mvif->omac_idx < hw_bssid_num)
+		return mvif->band_idx * hw_bssid_num + mvif->omac_idx;
+
+	/* Extended BSS */
+	return hw_bssid_num * 2 + (mvif->band_idx == 0 ? 1 : 17) +
+	       mvif->omac_idx - EXT_BSSID_1;
+}
+
 void mt7915_mac_init(struct mt7915_dev *dev)
 {
 	int i;
@@ -644,6 +715,9 @@ void mt7915_mac_init(struct mt7915_dev *dev)
 		mt7915_mac_init_band(dev, i);
 
 	mt7915_init_led_mux(dev);
+
+	if (!is_mt7915(&dev->mt76))
+		mt7915_vow_init(dev);
 }
 
 int mt7915_txbf_init(struct mt7915_dev *dev)
@@ -1208,6 +1282,12 @@ static void mt7915_unregister_ext_phy(struct mt7915_dev *dev)
 
 static void mt7915_stop_hardware(struct mt7915_dev *dev)
 {
+	int i;
+
+	mt76_for_each_q_rx(&dev->mt76, i) {
+		if (!mt76_queue_is_wed_rro(&dev->mt76.q_rx[i]))
+			napi_disable(&dev->mt76.napi[i]);
+	}
 	mt7915_mcu_exit(dev);
 	mt76_connac2_tx_token_put(&dev->mt76);
 	mt7915_dma_cleanup(dev);
