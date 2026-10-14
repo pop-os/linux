@@ -73,12 +73,14 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)
 	const struct mt792x_irq_map *irq_map = dev->irq_map;
 	int i, err;
 
-	mt792xe_mcu_drv_pmctrl(dev);
+	err = mt792xe_mcu_drv_pmctrl(dev);
+	if (err)
+		return err;
 
 	mt76_connac_free_pending_tx_skbs(&dev->pm, NULL);
 
 	mt76_wr(dev, dev->irq_map->host_irq_enable, 0);
-	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0x0);
+	mt76_wr(dev, dev->pcie_reg->imask, 0x0);
 
 	set_bit(MT76_RESET, &dev->mphy.state);
 	set_bit(MT76_MCU_RESET, &dev->mphy.state);
@@ -119,15 +121,13 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)
 
 	mt76_wr(dev, dev->irq_map->host_irq_enable,
 		dev->irq_map->tx.all_complete_mask |
-		dev->irq_map->rx.data_complete_mask |
-		dev->irq_map->rx.wm_complete_mask |
-		dev->irq_map->rx.wm2_complete_mask |
+		dev->irq_map->rx.all_complete_mask |
 		MT_INT_MCU_CMD);
-	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
+	mt76_wr(dev, dev->pcie_reg->imask, 0xff);
 
 	err = mt792xe_mcu_fw_pmctrl(dev);
 	if (err)
-		return err;
+		goto out;
 
 	err = __mt792xe_mcu_drv_pmctrl(dev);
 	if (err)
@@ -136,6 +136,8 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)
 	err = mt7925_run_firmware(dev);
 	if (err)
 		goto out;
+
+	mt7925e_axidma_cal_cache_init(dev);
 
 	err = mt7925_mcu_set_eeprom(dev);
 	if (err)

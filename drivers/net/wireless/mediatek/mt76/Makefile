@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
+ccflags-y += -Werror -DCONFIG_MT76_LEDS
 obj-$(CONFIG_MT76_CORE) += mt76.o
 obj-$(CONFIG_MT76_USB) += mt76-usb.o
 obj-$(CONFIG_MT76_SDIO) += mt76-sdio.o
