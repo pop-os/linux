@@ -30,6 +30,8 @@ int __mt76u_vendor_request(struct mt76_dev *dev, u8 req, u8 req_type,
 	for (i = 0; i < MT_VEND_REQ_MAX_RETRY; i++) {
 		if (test_bit(MT76_REMOVED, &dev->phy.state))
 			return -EIO;
+		if (dev->usb.ctrl_timeout && atomic_read(&dev->bus_hung))
+			return -EIO;
 
 		ret = usb_control_msg(udev, pipe, req, req_type, val,
 				      offset, buf, len, MT_VEND_REQ_TOUT_MS);
@@ -42,6 +44,15 @@ int __mt76u_vendor_request(struct mt76_dev *dev, u8 req, u8 req_type,
 
 	dev_err(dev->dev, "vendor request req:%02x off:%04x failed:%d\n",
 		req, offset, ret);
+
+	if (dev->usb.ctrl_timeout) {
+		atomic_set(&dev->bus_hung, true);
+		dev_err(dev->dev, "vendor request req:%02x off:%04x timed out, marking bus hung\n",
+			req, offset);
+		dev->usb.ctrl_timeout(dev, ret);
+		return ret;
+	}
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(__mt76u_vendor_request);
@@ -160,8 +171,10 @@ static void mt76u_copy(struct mt76_dev *dev, u32 offset,
 {
 	struct mt76_usb *usb = &dev->usb;
 	const u8 *val = data;
-	int ret;
 	int current_batch_size;
+	int len_aligned;
+	int copy_len;
+	int ret;
 	int i = 0;
 
 	/* Assure that always a multiple of 4 bytes are copied,
@@ -169,12 +182,16 @@ static void mt76u_copy(struct mt76_dev *dev, u32 offset,
 	 * See: "mt76: round up length on mt76_wr_copy"
 	 * Commit 850e8f6fbd5d0003b0
 	 */
-	len = round_up(len, 4);
+	len_aligned = round_up(len, 4);
 
 	mutex_lock(&usb->usb_ctrl_mtx);
-	while (i < len) {
-		current_batch_size = min_t(int, usb->data_len, len - i);
-		memcpy(usb->data, val + i, current_batch_size);
+	while (i < len_aligned) {
+		current_batch_size = min_t(int, usb->data_len, len_aligned - i);
+		copy_len = min_t(int, current_batch_size, len - i);
+		memcpy(usb->data, val + i, copy_len);
+		if (copy_len < current_batch_size)
+			memset(usb->data + copy_len, 0,
+			       current_batch_size - copy_len);
 		ret = __mt76u_vendor_request(dev, MT_VEND_MULTI_WRITE,
 					     USB_DIR_OUT | USB_TYPE_VENDOR,
 					     0, offset + i, usb->data,
@@ -580,7 +597,11 @@ static void mt76u_complete_rx(struct urb *urb)
 
 	q->head = (q->head + 1) % q->ndesc;
 	q->queued++;
-	mt76_worker_schedule(&dev->usb.rx_worker);
+
+	if (q == &dev->q_rx[MT_RXQ_MAIN])
+		napi_schedule(&dev->napi[MT_RXQ_MAIN]);
+	else
+		mt76_worker_schedule(&dev->usb.rx_worker);
 out:
 	spin_unlock_irqrestore(&q->lock, flags);
 }
@@ -618,11 +639,23 @@ mt76u_process_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 		}
 		mt76u_submit_rx_buf(dev, qid, urb);
 	}
-	if (qid == MT_RXQ_MAIN) {
-		local_bh_disable();
-		mt76_rx_poll_complete(dev, MT_RXQ_MAIN, NULL);
-		local_bh_enable();
-	}
+}
+
+/* Threaded NAPI poll for the MAIN RX queue: drain URBs, build skbs, resubmit,
+ * then deliver through napi_gro_receive() and let napi_complete() flush GRO.
+ */
+static int mt76u_napi_poll(struct napi_struct *napi, int budget)
+{
+	struct mt76_dev *dev = mt76_priv(napi->dev);
+
+	rcu_read_lock();
+	mt76u_process_rx_queue(dev, &dev->q_rx[MT_RXQ_MAIN]);
+	mt76_rx_poll_complete(dev, MT_RXQ_MAIN, napi);
+	rcu_read_unlock();
+
+	napi_complete(napi);
+
+	return 0;
 }
 
 static void mt76u_rx_worker(struct mt76_worker *w)
@@ -632,8 +665,13 @@ static void mt76u_rx_worker(struct mt76_worker *w)
 	int i;
 
 	rcu_read_lock();
-	mt76_for_each_q_rx(dev, i)
+	mt76_for_each_q_rx(dev, i) {
+		/* MT_RXQ_MAIN is serviced by the threaded NAPI poll */
+		if (i == MT_RXQ_MAIN)
+			continue;
+
 		mt76u_process_rx_queue(dev, &dev->q_rx[i]);
+	}
 	rcu_read_unlock();
 }
 
@@ -731,6 +769,13 @@ void mt76u_stop_rx(struct mt76_dev *dev)
 		for (j = 0; j < q->ndesc; j++)
 			usb_poison_urb(q->entry[j].urb);
 	}
+
+	/* The MAIN queue napi stays enabled for the device lifetime. The URBs
+	 * are now poisoned, so mt76u_complete_rx() can no longer reschedule it;
+	 * just drain any in-flight poll before the caller frees or resets.
+	 */
+	if (dev->napi_dev)
+		napi_synchronize(&dev->napi[MT_RXQ_MAIN]);
 }
 EXPORT_SYMBOL_GPL(mt76u_stop_rx);
 
@@ -854,6 +899,9 @@ mt76u_tx_queue_skb(struct mt76_phy *phy, struct mt76_queue *q,
 		   enum mt76_txq_id qid, struct sk_buff *skb,
 		   struct mt76_wcid *wcid, struct ieee80211_sta *sta)
 {
+	struct ieee80211_tx_status status = {
+		.sta = sta,
+	};
 	struct mt76_tx_info tx_info = {
 		.skb = skb,
 	};
@@ -861,17 +909,27 @@ mt76u_tx_queue_skb(struct mt76_phy *phy, struct mt76_queue *q,
 	u16 idx = q->head;
 	int err;
 
-	if (q->queued == q->ndesc)
-		return -ENOSPC;
+	if (q->queued == q->ndesc) {
+		err = -ENOSPC;
+		goto err_free_skb;
+	}
 
 	skb->prev = skb->next = NULL;
 	err = dev->drv->tx_prepare_skb(dev, NULL, qid, wcid, sta, &tx_info);
 	if (err < 0)
-		return err;
+		goto err_free_skb;
 
 	err = mt76u_tx_setup_buffers(dev, tx_info.skb, q->entry[idx].urb);
-	if (err < 0)
-		return err;
+	if (err < 0) {
+		/*
+		 * mt76_tx_status_skb_get() walks the idr and dereferences
+		 * a freed skb. This SKB is not counted in non-AQL counter
+		 * due to error return, so using 0xffff as wcid to keep
+		 * balanced.
+		 */
+		mt76_tx_complete_skb(dev, 0xffff, tx_info.skb);
+		goto err_ret;
+	}
 
 	mt76u_fill_bulk_urb(dev, USB_DIR_OUT, q->ep, q->entry[idx].urb,
 			    mt76u_complete_tx, &q->entry[idx]);
@@ -882,6 +940,14 @@ mt76u_tx_queue_skb(struct mt76_phy *phy, struct mt76_queue *q,
 	q->queued++;
 
 	return idx;
+
+err_free_skb:
+	status.skb = tx_info.skb;
+	spin_lock_bh(&dev->rx_lock);
+	ieee80211_tx_status_ext(dev->hw, &status);
+	spin_unlock_bh(&dev->rx_lock);
+err_ret:
+	return err;
 }
 
 static void mt76u_tx_kick(struct mt76_dev *dev, struct mt76_queue *q)
@@ -925,6 +991,8 @@ mt76u_ac_to_hwq(struct mt76_dev *dev, struct mt76_queue *q, u8 qid)
 		q->ep = q->hw_idx + 1;
 		break;
 	}
+	case 0x6639:
+	case 0x7902:
 	case 0x7961:
 	case 0x7925:
 		q->hw_idx = mt76_ac_to_hwq(ac);
@@ -1049,6 +1117,13 @@ void mt76u_queues_deinit(struct mt76_dev *dev)
 	mt76u_stop_rx(dev);
 	mt76u_stop_tx(dev);
 
+	if (dev->napi_dev) {
+		napi_disable(&dev->napi[MT_RXQ_MAIN]);
+		netif_napi_del(&dev->napi[MT_RXQ_MAIN]);
+		free_netdev(dev->napi_dev);
+		dev->napi_dev = NULL;
+	}
+
 	mt76u_free_rx(dev);
 	mt76u_free_tx(dev);
 }
@@ -1076,6 +1151,7 @@ int __mt76u_init(struct mt76_dev *dev, struct usb_interface *intf,
 {
 	struct usb_device *udev = interface_to_usbdev(intf);
 	struct mt76_usb *usb = &dev->usb;
+	struct mt76_dev **priv;
 	int err;
 
 	INIT_WORK(&usb->stat_work, mt76u_tx_status_data);
@@ -1112,6 +1188,20 @@ int __mt76u_init(struct mt76_dev *dev, struct usb_interface *intf,
 
 	sched_set_fifo_low(usb->rx_worker.task);
 	sched_set_fifo_low(usb->status_worker.task);
+
+	/* threaded NAPI on a dummy netdev (reusing mt76_dev's napi_dev/napi[])
+	 * services the MAIN RX queue and gives the RX path GRO
+	 */
+	dev->napi_dev = alloc_netdev_dummy(sizeof(struct mt76_dev *));
+	if (!dev->napi_dev)
+		return -ENOMEM;
+
+	priv = netdev_priv(dev->napi_dev);
+	*priv = dev;
+	strscpy(dev->napi_dev->name, "mt76u-rx", sizeof(dev->napi_dev->name));
+	dev->napi_dev->threaded = 1;
+	netif_napi_add(dev->napi_dev, &dev->napi[MT_RXQ_MAIN], mt76u_napi_poll);
+	napi_enable(&dev->napi[MT_RXQ_MAIN]);
 
 	return 0;
 }

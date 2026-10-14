@@ -7,6 +7,11 @@
 #include "../mt792x.h"
 #include "regs.h"
 
+#define MT7925_FILTER_FCSFAIL		BIT(2)
+#define MT7925_FILTER_CONTROL		BIT(5)
+#define MT7925_FILTER_OTHER_BSS	BIT(6)
+#define MT7925_FILTER_ENABLE		BIT(31)
+
 #define MT7925_BEACON_RATES_TBL		25
 
 #define MT7925_TX_RING_SIZE		2048
@@ -15,6 +20,7 @@
 
 #define MT7925_RX_RING_SIZE		1536
 #define MT7925_RX_MCU_RING_SIZE		512
+#define MT7928_RX_MCU_WA_RING_SIZE	512
 
 #define MT7925_EEPROM_SIZE		3584
 #define MT7925_TOKEN_SIZE		8192
@@ -124,6 +130,26 @@ enum mt7925_rxq_id {
 	MT7925_RXQ_BAND1,
 	MT7925_RXQ_MCU_WM = 0,
 	MT7925_RXQ_MCU_WM2, /* for tx done */
+};
+
+enum mt7927_txq_id {
+	MT7927_TXQ_BAND0 = MT7925_TXQ_BAND0,
+	MT7927_TXQ_BAND1 = MT7925_TXQ_BAND1,
+	MT7927_TXQ_MCU_WM = MT7925_TXQ_MCU_WM,
+	MT7927_TXQ_FWDL = MT7925_TXQ_FWDL,
+};
+
+enum mt7927_rxq_id {
+	MT7927_RXQ_BAND0 = 4,
+	MT7927_RXQ_MCU_WM = 6,
+	MT7927_RXQ_DATA2 = 7,
+};
+
+enum mt7928_rxq_id {
+	MT7928_RXQ_BAND0,
+	MT7928_RXQ_BAND1 = 2,
+	MT7928_RXQ_MCU_WM = 3,
+	MT7928_RXQ_MCU_WM2 = 1, /* for tx done */
 };
 
 enum {
@@ -239,6 +265,18 @@ struct mt7925_txpwr {
 	s8 eht996x3_484[16][2];
 };
 
+static inline u8 mt7927_band_idx(enum nl80211_band band)
+{
+	switch (band) {
+	case NL80211_BAND_2GHZ:
+		return 0;
+	case NL80211_BAND_5GHZ:
+	case NL80211_BAND_6GHZ:
+	default:
+		return 1;
+	}
+}
+
 extern const struct ieee80211_ops mt7925_ops;
 
 int __mt7925_start(struct mt792x_phy *phy);
@@ -253,7 +291,8 @@ int mt7925_mcu_sta_update(struct mt792x_dev *dev,
 			  struct ieee80211_vif *vif,
 			  struct mt792x_link_sta *mlink,
 			  bool enable,
-			  enum mt76_sta_info_state state);
+			  enum mt76_sta_info_state state,
+			  struct mt792x_link_sta *pending);
 int mt7925_mcu_set_chan_info(struct mt792x_phy *phy, u16 tag);
 int mt7925_mcu_set_tx(struct mt792x_dev *dev, struct ieee80211_bss_conf *bss_conf);
 int mt7925_mcu_set_eeprom(struct mt792x_dev *dev);
@@ -293,10 +332,10 @@ int mt7925_mcu_set_beacon_filter(struct mt792x_dev *dev,
 				 bool enable);
 int mt7925_mcu_uni_tx_ba(struct mt792x_dev *dev,
 			 struct ieee80211_ampdu_params *params,
-			 bool enable);
+			 struct ieee80211_vif *vif, bool enable);
 int mt7925_mcu_uni_rx_ba(struct mt792x_dev *dev,
 			 struct ieee80211_ampdu_params *params,
-			 bool enable);
+			 struct ieee80211_vif *vif, bool enable);
 void mt7925_mlo_pm_work(struct work_struct *work);
 void mt7925_scan_work(struct work_struct *work);
 void mt7925_roc_work(struct work_struct *work);
@@ -320,13 +359,16 @@ int mt7925_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 
 int mt7925e_mac_reset(struct mt792x_dev *dev);
 int mt7925e_mcu_init(struct mt792x_dev *dev);
+void mt7925e_axidma_cal_cache_init(struct mt792x_dev *dev);
 void mt7925_mac_add_txs(struct mt792x_dev *dev, void *data);
+void mt7928_mac_add_txs_msg(struct mt792x_dev *dev, void *evt);
 void mt7925_set_runtime_pm(struct mt792x_dev *dev);
 void mt7925_mcu_set_suspend_iter(void *priv, u8 *mac,
 				 struct ieee80211_vif *vif);
 void mt7925_connac_mcu_set_suspend_iter(void *priv, u8 *mac,
 					struct ieee80211_vif *vif);
 void mt7925_set_ipv6_ns_work(struct work_struct *work);
+void mt7925_nan_deferred_work(struct work_struct *work);
 
 int mt7925_mcu_set_sniffer(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 			   bool enable);

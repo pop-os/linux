@@ -35,6 +35,12 @@
 #define PATCH_SEC_ENC_SCRAMBLE_INFO_MASK	GENMASK(15, 0)
 #define PATCH_SEC_ENC_AES_KEY_MASK		GENMASK(7, 0)
 
+#define SEC_TYPE_SUBSYS_MASK			GENMASK(23, 16)
+#define SEC_TYPE_SUBSYS_CBMCU			BIT(16)
+
+#define SEC_TYPE_SUBSYS_SEC_MASK		GENMASK(15, 0)
+#define SEC_TYPE_SUBSYS_SEC_IMG_SIGN		0x05
+
 enum {
 	FW_TYPE_DEFAULT = 0,
 	FW_TYPE_CLC = 2,
@@ -191,6 +197,25 @@ struct mt76_connac2_fw_region {
 	u8 feature_set;
 	u8 type;
 	u8 rsv1[14];
+} __packed;
+
+struct mt76_connac3_multi_header_v2_sec_raw_format {
+	__le32 type;
+	__le32 offset;
+	__le32 size;
+	u8 spec[52];
+} __packed;
+
+struct mt76_connac3_multi_header_v2_raw_format {
+	u8 pack_time[20];
+	u8 chip_id_eco_ver[8];
+	__le32 patch_ver;
+	u8 global_desc_head[4];
+	__le32 global_subsys;
+	u8 rsv2[4];
+	__le32 sec_num;
+	u8 rsv3[48];
+	struct mt76_connac3_multi_header_v2_sec_raw_format sects[];
 } __packed;
 
 struct tlv {
@@ -842,6 +867,7 @@ enum {
 	STA_REC_HDRT = 0x28,
 	STA_REC_EML_OP = 0x29,
 	STA_REC_HDR_TRANS = 0x2B,
+	STA_REC_PS_LEAVE = 0x45,
 	STA_REC_MAX_NUM
 };
 
@@ -876,6 +902,7 @@ enum {
 #define NETWORK_P2P			BIT(17)
 #define NETWORK_IBSS			BIT(18)
 #define NETWORK_WDS			BIT(21)
+#define NETWORK_NAN			BIT(22)
 
 #define SCAN_FUNC_RANDOM_MAC		BIT(0)
 #define SCAN_FUNC_RNR_SCAN		BIT(3)
@@ -888,6 +915,7 @@ enum {
 #define CONNECTION_IBSS_ADHOC		(STA_TYPE_ADHOC | NETWORK_IBSS)
 #define CONNECTION_WDS			(STA_TYPE_WDS | NETWORK_WDS)
 #define CONNECTION_INFRA_BC		(STA_TYPE_BC | NETWORK_INFRA)
+#define CONNECTION_NAN			(NETWORK_NAN)
 
 #define CONN_STATE_DISCONNECT		0
 #define CONN_STATE_CONNECT		1
@@ -1066,13 +1094,16 @@ enum {
 	MCU_UNI_EVENT_IE_COUNTDOWN = 0x09,
 	MCU_UNI_EVENT_COREDUMP = 0x0a,
 	MCU_UNI_EVENT_BSS_BEACON_LOSS = 0x0c,
+	MCU_UNI_EVENT_PS_SYNC = 0x0d,
 	MCU_UNI_EVENT_SCAN_DONE = 0x0e,
 	MCU_UNI_EVENT_RDD_REPORT = 0x11,
 	MCU_UNI_EVENT_ROC = 0x27,
+	MCU_UNI_EVENT_MBMC = 0x28,
 	MCU_UNI_EVENT_TX_DONE = 0x2d,
 	MCU_UNI_EVENT_THERMAL = 0x35,
 	MCU_UNI_EVENT_RSSI_MONITOR = 0x41,
 	MCU_UNI_EVENT_NIC_CAPAB = 0x43,
+	MCU_UNI_EVENT_NAN = 0x56,
 	MCU_UNI_EVENT_WED_RRO = 0x57,
 	MCU_UNI_EVENT_PER_STA_INFO = 0x6d,
 	MCU_UNI_EVENT_ALL_STA_INFO = 0x6e,
@@ -1101,6 +1132,13 @@ enum {
 	PATCH_IS_DL,
 	PATCH_NOT_DL_SEM_SUCCESS,
 	PATCH_REL_SEM_SUCCESS
+};
+
+enum {
+	CB_PATCH_GET_SEM_NEED_PATCH,
+	CB_PATCH_IS_DL,
+	CB_PATCH_NO_SEM_NEED_PATCH,
+	CB_PATCH_REL_SEM_SUCCESS
 };
 
 enum {
@@ -1239,6 +1277,7 @@ enum {
 	MCU_EXT_CMD_THERMAL_CTRL = 0x2c,
 	MCU_EXT_CMD_WTBL_UPDATE = 0x32,
 	MCU_EXT_CMD_SET_DRR_CTRL = 0x36,
+	MCU_EXT_CMD_SET_FEATURE_CTRL = 0x38,
 	MCU_EXT_CMD_SET_RDD_CTRL = 0x3a,
 	MCU_EXT_CMD_ATE_CTRL = 0x3d,
 	MCU_EXT_CMD_PROTECT_CTRL = 0x3e,
@@ -1248,6 +1287,7 @@ enum {
 	MCU_EXT_CMD_MUAR_UPDATE = 0x48,
 	MCU_EXT_CMD_BCN_OFFLOAD = 0x49,
 	MCU_EXT_CMD_RX_AIRTIME_CTRL = 0x4a,
+	MCU_EXT_CMD_AT_PROC_MODULE = 0x4b,
 	MCU_EXT_CMD_SET_RX_PATH = 0x4e,
 	MCU_EXT_CMD_EFUSE_FREE_BLOCK = 0x4f,
 	MCU_EXT_CMD_TX_POWER_FEATURE_CTRL = 0x58,
@@ -1312,15 +1352,18 @@ enum {
 	MCU_UNI_CMD_FIXED_RATE_TABLE = 0x40,
 	MCU_UNI_CMD_RSSI_MONITOR = 0x41,
 	MCU_UNI_CMD_TESTMODE_CTRL = 0x46,
+	MCU_UNI_CMD_NAN	= 0x56,
 	MCU_UNI_CMD_RRO = 0x57,
 	MCU_UNI_CMD_OFFCH_SCAN_CTRL = 0x58,
 	MCU_UNI_CMD_PER_STA_INFO = 0x6d,
 	MCU_UNI_CMD_ALL_STA_INFO = 0x6e,
 	MCU_UNI_CMD_ASSERT_DUMP = 0x6f,
 	MCU_UNI_CMD_EXT_EEPROM_CTRL = 0x74,
+	MCU_UNI_CMD_FACT_CAL = 0x7c,
 	MCU_UNI_CMD_RADIO_STATUS = 0x80,
 	MCU_UNI_CMD_MLD = 0x82,
 	MCU_UNI_CMD_SDO = 0x88,
+	MCU_UNI_CMD_AXIDMA = 0xa2,
 };
 
 enum {
@@ -1331,6 +1374,9 @@ enum {
 	MCU_CMD_PATCH_START_REQ = 0x05,
 	MCU_CMD_PATCH_FINISH_REQ = 0x07,
 	MCU_CMD_PATCH_SEM_CONTROL = 0x10,
+	MCU_CMD_CB_PATCH_SEM_CONTROL = 0x30,
+	MCU_CMD_CB_PATCH_START_REQ = 0x31,
+	MCU_CMD_CB_PATCH_FINISH_REQ = 0x32,
 	MCU_CMD_WA_PARAM = 0xc4,
 	MCU_CMD_EXT_CID = 0xed,
 	MCU_CMD_FW_SCATTER = 0xee,
@@ -1363,6 +1409,7 @@ enum {
 	MCU_CE_CMD_FWLOG_2_HOST = 0xc5,
 	MCU_CE_CMD_GET_WTBL = 0xcd,
 	MCU_CE_CMD_GET_TXPWR = 0xd0,
+	MCU_CE_CMD_SET_REGD_CH = 0xd1,
 };
 
 enum {
@@ -1598,7 +1645,7 @@ struct mt76_connac_hw_scan_done {
 	u8 pno_enabled;
 	u8 pad2[3];
 	u8 sparse_channel_valid_num;
-	u8 pad3[3];
+	u8 alpha2[3];
 	u8 channel_num[MT76_CONNAC_SCAN_DONE_EVENT_MAX_CHANNEL_NUM];
 	/* idle format for channel_idle_time
 	 * 0: first bytes: idle time(ms) 2nd byte: dwell time(ms)
@@ -1611,6 +1658,7 @@ struct mt76_connac_hw_scan_done {
 	u8 mdrdy_count[MT76_CONNAC_SCAN_DONE_EVENT_MAX_CHANNEL_NUM];
 	__le32 beacon_2g_num;
 	__le32 beacon_5g_num;
+	__le16 channel_scan_time[MT76_CONNAC_SCAN_DONE_EVENT_MAX_CHANNEL_NUM];
 } __packed;
 
 struct mt76_connac_sched_scan_req {
@@ -1878,7 +1926,7 @@ mt76_connac_mcu_gen_dl_mode(struct mt76_dev *dev, u8 feature_set, bool is_wa)
 
 	ret |= feature_set & FW_FEATURE_SET_ENCRYPT ?
 	       DL_MODE_ENCRYPT | DL_MODE_RESET_SEC_IV : 0;
-	if (is_connac2(dev) || is_mt7925(dev))
+	if (is_connac2(dev) || is_connac3(dev))
 		ret |= feature_set & FW_FEATURE_ENCRY_MODE ?
 		       DL_CONFIG_ENCRY_MODE_SEL : 0;
 	ret |= FIELD_PREP(DL_MODE_KEY_IDX,
@@ -1904,6 +1952,29 @@ mt76_connac_mcu_get_wlan_idx(struct mt76_dev *dev, struct mt76_wcid *wcid,
 	} else {
 		*wlan_idx_lo = wcid ? wcid->idx : 0;
 	}
+}
+
+#define MT76_CONNAC_MCU_STATUS_WLAN_FAILURE	0xc0000001
+
+static inline int
+mt76_connac_mcu_bss_deact_err(struct mt76_dev *mdev, int err, bool enable)
+{
+	if (err != (int)MT76_CONNAC_MCU_STATUS_WLAN_FAILURE)
+		return err;
+
+	/* Ignore wlan_failure state false alarm when deactivating an
+	 * inactive network. It does not harm the firmware state.
+	 */
+	if (!enable) {
+		dev_dbg(mdev->dev,
+			"ignore wlan_failure when bss is deactivated\n");
+		return 0;
+	}
+
+	dev_warn(mdev->dev,
+		 "wlan_failure when bss is activated\n");
+
+	return err;
 }
 
 struct sk_buff *
@@ -1994,6 +2065,9 @@ int mt76_connac_mcu_init_download(struct mt76_dev *dev, u32 addr, u32 len,
 				  u32 mode);
 int mt76_connac_mcu_start_patch(struct mt76_dev *dev);
 int mt76_connac_mcu_patch_sem_ctrl(struct mt76_dev *dev, bool get);
+int mt76_connac_cb_mcu_init_download(struct mt76_dev *dev, u32 len);
+int mt76_connac_cb_mcu_start_patch(struct mt76_dev *dev);
+int mt76_connac_cb_mcu_patch_sem_ctrl(struct mt76_dev *dev, bool get);
 int mt76_connac_mcu_start_firmware(struct mt76_dev *dev, u32 addr, u32 option);
 
 void mt76_connac_mcu_build_rnr_scan_param(struct mt76_dev *mdev,
@@ -2028,7 +2102,7 @@ void mt76_connac_mcu_set_suspend_iter(void *priv, u8 *mac,
 int mt76_connac_sta_state_dp(struct mt76_dev *dev,
 			     enum ieee80211_sta_state old_state,
 			     enum ieee80211_sta_state new_state);
-int mt76_connac_mcu_chip_config(struct mt76_dev *dev);
+int mt76_connac_mcu_chip_config(struct mt76_dev *dev, const char *cmd);
 int mt76_connac_mcu_set_deep_sleep(struct mt76_dev *dev, bool enable);
 void mt76_connac_mcu_coredump_event(struct mt76_dev *dev, struct sk_buff *skb,
 				    struct mt76_connac_coredump *coredump);
@@ -2077,7 +2151,9 @@ int mt76_connac_mcu_rdd_cmd(struct mt76_dev *dev, int cmd, u8 index,
 int mt76_connac_mcu_sta_wed_update(struct mt76_dev *dev, struct sk_buff *skb);
 int mt76_connac2_load_ram(struct mt76_dev *dev, const char *fw_wm,
 			  const char *fw_wa);
+int mt76_connac3_load_phy_ram(struct mt76_dev *dev, const char *fw_name);
 int mt76_connac2_load_patch(struct mt76_dev *dev, const char *fw_name);
+int mt76_connac3_load_cb_patch(struct mt76_dev *dev, const char *fw_name);
 int mt76_connac2_mcu_fill_message(struct mt76_dev *mdev, struct sk_buff *skb,
 				  int cmd, int *wait_seq);
 #endif /* __MT76_CONNAC_MCU_H */
