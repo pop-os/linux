@@ -113,7 +113,8 @@ Section: kernel
 Breaks:
  nvidia-dkms-580 (<< 580.178),
  nvidia-dkms-580-open (<< 580.178),
- nvidia-dkms-590 (<< 595.104)
+ nvidia-dkms-590 (<< 595.104),
+ zfs-dkms (<< 2.4.4),
 Depends:
  ${misc:Depends},
  linux-headers-7.2.6-76070206-generic (= ${source:Version})
