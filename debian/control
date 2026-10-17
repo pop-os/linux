@@ -110,6 +110,10 @@ Package: linux-headers-generic
 Build-Profiles: <!stage1>
 Architecture: amd64 arm64 powerpc ppc64el s390x
 Section: kernel
+Breaks:
+ nvidia-dkms-580 (<< 580.178),
+ nvidia-dkms-580-open (<< 580.178),
+ nvidia-dkms-590 (<< 595.104)
 Depends:
  ${misc:Depends},
  linux-headers-7.2.6-76070206-generic (= ${source:Version})
