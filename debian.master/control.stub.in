@@ -74,6 +74,11 @@ Multi-Arch: foreign
 Section: devel
 Priority: optional
 Depends: ${misc:Depends}, coreutils
+Conflicts:
+ nvidia-dkms-580 (<< 580.178),
+ nvidia-dkms-580-open (<< 580.178),
+ nvidia-dkms-590 (<< 595.104),
+ zfs-dkms (<< 2.4.4),
 Description: Header files related to Linux kernel version PKGVER
  This package provides kernel header files for version PKGVER, for sites
  that want the latest kernel headers. Please read
