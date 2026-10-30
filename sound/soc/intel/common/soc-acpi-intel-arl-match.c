@@ -274,6 +274,21 @@ static const struct snd_soc_acpi_adr_device rt722_0_agg_adr[] = {
 	}
 };
 
+static const struct snd_soc_acpi_endpoint rt721_endpoints[] = {
+	{ .num = 0, .aggregated = 0, .group_position = 0, .group_id = 0 },
+	{ .num = 1, .aggregated = 0, .group_position = 0, .group_id = 0 },
+	{ .num = 2, .aggregated = 0, .group_position = 0, .group_id = 0 },
+};
+
+static const struct snd_soc_acpi_adr_device rt721_0_adr[] = {
+	{
+		.adr = 0x000030025D072101ull,
+		.num_endpoints = ARRAY_SIZE(rt721_endpoints),
+		.endpoints = rt721_endpoints,
+		.name_prefix = "rt721"
+	}
+};
+
 static const struct snd_soc_acpi_adr_device rt712_0_agg_adr[] = {
 	{
 		.adr = 0x000030025D071201ull,
@@ -468,6 +483,15 @@ static const struct snd_soc_acpi_link_adr arl_rt722_l0_rt1320_l2[] = {
 	{}
 };
 
+static const struct snd_soc_acpi_link_adr arl_rt721_l0[] = {
+	{
+		.mask = BIT(0),
+		.num_adr = ARRAY_SIZE(rt721_0_adr),
+		.adr_d = rt721_0_adr,
+	},
+	{}
+};
+
 static const struct snd_soc_acpi_link_adr arl_rt712_l0_rt1320_l3[] = {
 	{
 		.mask = BIT(0),
@@ -532,6 +556,14 @@ EXPORT_SYMBOL_GPL(snd_soc_acpi_intel_arl_machines);
 
 /* this table is used when there is no I2S codec present */
 struct snd_soc_acpi_mach snd_soc_acpi_intel_arl_sdw_machines[] = {
+	{
+		.link_mask = BIT(0),
+		.links = arl_rt721_l0,
+		.drv_name = "sof_sdw",
+		.sof_tplg_filename = "sof-ptl-rt721.tplg",
+		.get_function_tplg_files = sof_sdw_get_tplg_files,
+	},
+
 	{
 		.link_mask = BIT(0) | BIT(2) | BIT(3),
 		.links = arl_cs42l43_l0_cs35l56_l23,
