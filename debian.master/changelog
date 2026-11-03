@@ -1,6 +1,6 @@
-linux (7.2.15-070215.202611011338) stonking; urgency=low
+linux (7.2.15-76070215.202611011338) stonking; urgency=low
 
+  [ Mainline Build ]
   Mainline build at commit: v7.2.15
 
- -- Mainline Build <kernel@balboa>  Sun, 01 Nov 2026 13:38:08 +0000
-
+ -- Jeremy Soller <jeremy@system76.com>  Tue, 03 Nov 2026 09:00:01 -0700
