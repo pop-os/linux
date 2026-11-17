@@ -8939,7 +8939,8 @@ CONFIG_MT7663_USB_SDIO_COMMON                   policy<{'amd64': 'm', 'arm64': '
 CONFIG_MT76_CONNAC_LIB                          policy<{'amd64': 'm', 'arm64': 'm', 'armhf': 'm', 'ppc64el': 'm', 'riscv64': 'm'}>
 CONFIG_MT76_CORE                                policy<{'amd64': 'm', 'arm64': 'm', 'armhf': 'm', 'ppc64el': 'm', 'riscv64': 'm'}>
 CONFIG_MT76_LEDS                                policy<{'amd64': 'y', 'arm64': 'y', 'armhf': 'y', 'ppc64el': 'y', 'riscv64': 'y'}>
-CONFIG_MT76_NPU                                 policy<{'arm64': 'm', 'armhf': 'm'}>
+#TODO: breaks mt76 driver pulled from openwrt:
+CONFIG_MT76_NPU                                 policy<{'arm64': 'n', 'armhf': 'n'}>
 CONFIG_MT76_SDIO                                policy<{'amd64': 'm', 'arm64': 'm', 'armhf': 'm', 'ppc64el': 'm', 'riscv64': 'm'}>
 CONFIG_MT76_USB                                 policy<{'amd64': 'm', 'arm64': 'm', 'armhf': 'm', 'ppc64el': 'm', 'riscv64': 'm'}>
 CONFIG_MT76x02_LIB                              policy<{'amd64': 'm', 'arm64': 'm', 'armhf': 'm', 'ppc64el': 'm', 'riscv64': 'm'}>
@@ -8962,7 +8963,8 @@ CONFIG_MT792x_LIB                               policy<{'amd64': 'm', 'arm64': '
 CONFIG_MT792x_USB                               policy<{'amd64': 'm', 'arm64': 'm', 'armhf': 'm', 'ppc64el': 'm', 'riscv64': 'm'}>
 CONFIG_MT798X_WMAC                              policy<{'arm64': 'y', 'armhf': 'y'}>
 CONFIG_MT7996E                                  policy<{'amd64': 'm', 'arm64': 'm', 'armhf': 'm', 'ppc64el': 'm', 'riscv64': 'm'}>
-CONFIG_MT7996_NPU                               policy<{'arm64': 'y', 'armhf': 'y'}>
+#TODO: breaks mt76 driver pulled from openwrt:
+CONFIG_MT7996_NPU                               policy<{'arm64': 'n', 'armhf': 'n'}>
 CONFIG_MTDRAM_ERASE_SIZE                        policy<{'amd64': '128', 'arm64': '128', 'armhf': '128', 'ppc64el': '128', 'riscv64': '128'}>
 CONFIG_MTDRAM_TOTAL_SIZE                        policy<{'amd64': '4096', 'arm64': '4096', 'armhf': '4096', 'ppc64el': '4096', 'riscv64': '4096'}>
 CONFIG_MTD_ABSENT                               policy<{'amd64': 'm', 'arm64': 'm', 'armhf': 'm', 'ppc64el': 'm', 'riscv64': 'm'}>
